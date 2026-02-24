@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book } from "lucide-react";
+import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book, Microscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
@@ -18,6 +18,7 @@ import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { DownloadMenu } from "@/components/ui/DownloadMenu";
 import { ChapterNotesEditor } from "@/features/chapters/components/ChapterNotesEditor";
 import { DraftsPanel } from "@/features/drafts/components/DraftsPanel";
+import { AIEditorialPanel } from "@/features/chapters/components/AIEditorialPanel";
 import { AISettingsPanel } from "@/features/ai/components/AISettingsPanel";
 import { PromptsPanel } from "@/features/prompts/components/PromptsPanel";
 import { LorebookPanel } from "@/features/lorebook/components/LorebookPanel";
@@ -44,7 +45,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router";
 
-type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | null;
+type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "chapterReview" | null;
 
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
@@ -158,6 +159,16 @@ export function StoryEditor() {
             </Button>
 
             <Button
+                variant={openDrawer === "chapterReview" ? "default" : "outline"}
+                size="sm"
+                className="mx-2 justify-start"
+                onClick={() => handleOpenDrawer("chapterReview")}
+            >
+                <Microscope className="h-4 w-4 mr-2" />
+                AI Editorial
+            </Button>
+
+            <Button
                 variant={openDrawer === "aiSettings" ? "default" : "outline"}
                 size="sm"
                 className="mx-2 justify-start"
@@ -238,6 +249,10 @@ export function StoryEditor() {
                         <DropdownMenuItem onClick={() => handleOpenDrawer("prompts")}>
                             <ScrollText className="h-4 w-4 mr-2" />
                             Prompts
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("chapterReview")}>
+                            <Microscope className="h-4 w-4 mr-2" />
+                            AI Editorial
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenDrawer("aiSettings")}>
                             <Settings className="h-4 w-4 mr-2" />
@@ -417,6 +432,20 @@ export function StoryEditor() {
                     </div>
                 </SheetContent>
             </Sheet>
-        </div>
+
+            {/* AI Editorial Sheet */}
+            <Sheet open={openDrawer === "chapterReview"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[600px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>AI Editorial</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-4 pt-2">
+                        <AIEditorialPanel />
+                    </div>
+                </SheetContent>
+            </Sheet>        </div>
     );
 }

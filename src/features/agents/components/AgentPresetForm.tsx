@@ -59,6 +59,8 @@ const AGENT_ROLES: { value: AgentRole; label: string; description: string }[] = 
     { value: 'outline_generator', label: 'Outline Generator', description: 'Generates structured story/chapter outlines' },
     { value: 'style_extractor', label: 'Style Extractor', description: 'Analyzes text to extract writing style' },
     { value: 'scenebeat_generator', label: 'Scene Beat Generator', description: 'Generates scene beat commands' },
+    { value: 'chapter_reviewer', label: 'Chapter Reviewer', description: 'Reviews an entire chapter for quality, consistency, and suggestions' },
+    { value: 'chapter_editor', label: 'Chapter Editor', description: 'Rewrites/edits an entire chapter based on instructions' },
     { value: 'custom', label: 'Custom', description: 'User-defined agent role' },
 ];
 

@@ -464,6 +464,12 @@ export class AgentOrchestrator {
             case 'scenebeat_generator':
                 return this.buildScenebeatGeneratorMessage(agent, input, previousResults);
 
+            case 'chapter_reviewer':
+                return this.buildChapterReviewerMessage(agent, input);
+
+            case 'chapter_editor':
+                return this.buildChapterEditorMessage(agent, input);
+
             case 'custom':
             default:
                 return this.buildCustomMessage(agent, input, previousResults);
@@ -646,8 +652,78 @@ Provide the improved version:`;
         return message;
     }
 
-    private buildCustomMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
-        const config = this.getEffectiveContextConfig(agent);
+    private buildChapterEditorMessage(agent: AgentPreset, input: PipelineInput): string {
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const chapterText = input.previousWords || '';
+        const editInstructions = input.scenebeat || '';
+
+        let message = '';
+
+        // Include lorebook so the editor can preserve lore-accurate details
+        if (lorebookEntries.length > 0) {
+            const lorebookContext = lorebookEntries
+                .map(e => `[${e.category?.toUpperCase() ?? 'LORE'}] ${e.name}: ${e.description}`)
+                .join('\n\n');
+            message += `ESTABLISHED LORE & CHARACTERS:\n${lorebookContext}\n\n`;
+        }
+
+        // Add POV info so voice is preserved
+        if (input.povType) {
+            message += `POV: ${input.povType}`;
+            if (input.povCharacter) {
+                message += ` (${input.povCharacter})`;
+            }
+            message += '\n\n';
+        }
+
+        message += `CHAPTER TO EDIT:\n${chapterText}\n\n`;
+
+        if (editInstructions) {
+            message += `EDITING INSTRUCTIONS:\n${editInstructions}\n\n`;
+        }
+
+        message += `---\nReturn the complete edited chapter text and nothing else:`;
+
+        return message;
+    }
+
+    private buildChapterReviewerMessage(agent: AgentPreset, input: PipelineInput): string {        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const chapterText = input.previousWords || '';
+        const reviewFocus = input.scenebeat || '';
+
+        let message = '';
+
+        // Add lorebook context so the reviewer can check for lore consistency
+        if (lorebookEntries.length > 0) {
+            const lorebookContext = lorebookEntries
+                .map(e => `[${e.category?.toUpperCase() ?? 'LORE'}] ${e.name}: ${e.description}`)
+                .join('\n\n');
+            message += `ESTABLISHED LORE & CHARACTERS:\n${lorebookContext}\n\n`;
+        }
+
+        // Add POV info if available
+        if (input.povType) {
+            message += `POV: ${input.povType}`;
+            if (input.povCharacter) {
+                message += ` (${input.povCharacter})`;
+            }
+            message += '\n\n';
+        }
+
+        // Add the chapter text to review
+        message += `CHAPTER TEXT TO REVIEW:\n${chapterText}\n\n`;
+
+        // Add optional reviewer focus/instructions
+        if (reviewFocus) {
+            message += `REVIEW FOCUS:\n${reviewFocus}\n\n`;
+        }
+
+        message += `---\nPlease provide a detailed review of the chapter above.`;
+
+        return message;
+    }
+
+    private buildCustomMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {        const config = this.getEffectiveContextConfig(agent);
         const lorebookEntries = this.getLorebookForAgent(agent, input);
         const contextText = this.getPreviousWordsForAgent(agent, input, previousResults);
         

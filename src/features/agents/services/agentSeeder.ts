@@ -83,6 +83,18 @@ const CONTEXT_CONFIGS: Record<string, AgentContextConfig> = {
         includeChapterSummary: false,
         includePovInfo: false,
     },
+    chapter_reviewer: {
+        lorebookMode: 'all',
+        previousWordsMode: 'full',
+        includeChapterSummary: false,
+        includePovInfo: true,
+    },
+    chapter_editor: {
+        lorebookMode: 'all',
+        previousWordsMode: 'full',
+        includeChapterSummary: false,
+        includePovInfo: true,
+    },
 };
 
 // System agent presets with template variables
@@ -316,6 +328,55 @@ Response format:
         storyId: null,
         contextConfig: CONTEXT_CONFIGS.refusal_checker,
     },
+    {
+        name: 'System Chapter Reviewer',
+        description: 'Reviews an entire chapter for prose quality, consistency, pacing, and provides editorial feedback.',
+        role: 'chapter_reviewer',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are an expert fiction editor and literary critic. Your job is to review a complete chapter and provide detailed, constructive feedback.
+
+Review the chapter across these dimensions:
+
+1. **Prose Quality**: Sentence variety, word choice, show vs. tell balance, rhythm and flow
+2. **Character Consistency**: Are characters acting true to their established traits? Is dialogue authentic?
+3. **Pacing**: Does the chapter move at an appropriate speed? Are there slow or rushed sections?
+4. **Scene Structure**: Is there a clear opening, middle, and payoff? Does tension build effectively?
+5. **Lore & Continuity**: Any contradictions with established world-building or character facts?
+6. **Dialogue**: Natural? Distinct character voices? Subtext present where appropriate?
+7. **Emotional Impact**: Does the chapter land emotionally? Are the stakes clear and felt?
+8. **Strengths**: What works well and should be preserved?
+9. **Suggestions**: Specific, actionable improvements with brief examples where helpful.
+
+Be honest but constructive. Lead with what works, then address what can be improved. Be specific — generic praise or criticism is not useful.`,
+        temperature: 0.4,
+        maxTokens: 3000,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.chapter_reviewer,
+    },
+    {
+        name: 'System Chapter Editor',
+        description: 'Rewrites and edits an entire chapter based on instructions. Uses high token limit for full-chapter output.',
+        role: 'chapter_editor',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are a professional fiction editor. You will receive the full text of a chapter and editing instructions (if any). Your task is to rewrite and edit the chapter while preserving the author's voice and intent.
+
+If no specific instructions are given, perform a thorough editorial pass:
+- Improve sentence variety and pacing
+- Tighten prose (remove redundancy and unnecessary words)
+- Enhance show vs. tell throughout
+- Polish dialogue for naturalness and distinct character voice
+- Fix pacing and tension issues
+- Improve transitions between scenes and paragraphs
+- Strengthen the opening and closing lines
+
+Return ONLY the edited chapter text. Do not include commentary, preamble, explanations, or headings. Output the full chapter from start to finish.`,
+        temperature: 0.7,
+        maxTokens: 8192,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.chapter_editor,
+    },
 ];
 
 // System pipeline presets
@@ -407,6 +468,37 @@ const SYSTEM_PIPELINE_PRESETS: {
                 streamOutput: true,
                 pushPrompt: `Your previous response was flagged as a refusal. You MUST write the creative prose as instructed. Do not refuse, apologize, or provide meta-commentary. Write the story content directly, continuing from where the previous context left off.`,
             },
+        ],
+    },
+    {
+        name: 'Chapter Review',
+        description: 'Reviews an entire chapter for prose quality, consistency, pacing, and provides detailed editorial feedback.',
+        agentRoles: [
+            { role: 'chapter_reviewer', streamOutput: true },
+        ],
+    },
+    {
+        name: 'Chapter Deep Review',
+        description: 'Reviews a chapter then follows up with a lore and continuity check.',
+        agentRoles: [
+            { role: 'chapter_reviewer', streamOutput: true },
+            { role: 'lore_judge' },
+            { role: 'continuity_checker' },
+        ],
+    },
+    {
+        name: 'Chapter Edit',
+        description: 'Rewrites and edits the full chapter in a single pass. Best for general editorial polish.',
+        agentRoles: [
+            { role: 'chapter_editor', streamOutput: true },
+        ],
+    },
+    {
+        name: 'Chapter Review then Edit',
+        description: 'Reviews the chapter first, then produces a fully edited version addressing the identified issues.',
+        agentRoles: [
+            { role: 'chapter_reviewer' },
+            { role: 'chapter_editor', streamOutput: true },
         ],
     },
 ];

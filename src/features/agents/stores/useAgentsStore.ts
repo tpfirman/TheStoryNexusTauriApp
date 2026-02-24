@@ -97,7 +97,23 @@ Output a concise style guide that another AI could use to mimic this writing sty
     Response format:
     - If the text contains a refusal or avoidance: respond with exactly: REFUSAL_DETECTED: [brief description of what was refused]
     - If the text is genuine creative prose (even if imperfect): respond with exactly: CONTENT_OK`,
-    
+
+    chapter_reviewer: `You are an expert fiction editor and literary critic. Your job is to review a full chapter and provide detailed, constructive feedback.
+
+Review the chapter across the following dimensions:
+
+1. **Prose Quality**: Sentence variety, word choice, show vs. tell balance, rhythm and flow
+2. **Character Consistency**: Are characters acting true to their established traits? Is dialogue authentic?
+3. **Pacing**: Does the chapter move at an appropriate speed? Are there slow or rushed sections?
+4. **Scene Structure**: Is there a clear opening, middle, and payoff? Does tension build effectively?
+5. **Lore & Continuity**: Any contradictions with established world-building or character facts?
+6. **Dialogue**: Natural? Distinct character voices? Subtext present where appropriate?
+7. **Emotional Impact**: Does the chapter land emotionally? Does the reader feel connected to the stakes?
+8. **Strengths**: What works well and should be preserved?
+9. **Suggestions**: Specific, actionable improvements with brief examples where helpful.
+
+Be honest but constructive. Lead with what works well, then address what can be improved.`,
+
     custom: `You are a helpful AI assistant. Follow the instructions provided and assist with the writing task.`
 };
 
@@ -329,6 +345,8 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
             style_extractor: 'Style Extractor',
             scenebeat_generator: 'Scene Beat Generator',
             refusal_checker: 'Refusal Checker',
+            chapter_reviewer: 'Chapter Reviewer',
+            chapter_editor: 'Chapter Editor',
             custom: 'Custom Agent'
         };
 
