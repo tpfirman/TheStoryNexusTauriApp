@@ -84,13 +84,13 @@ const CONTEXT_CONFIGS: Record<string, AgentContextConfig> = {
         includePovInfo: false,
     },
     chapter_reviewer: {
-        lorebookMode: 'all',
+        lorebookMode: 'matched',
         previousWordsMode: 'full',
         includeChapterSummary: false,
         includePovInfo: true,
     },
     chapter_editor: {
-        lorebookMode: 'all',
+        lorebookMode: 'matched',
         previousWordsMode: 'full',
         includeChapterSummary: false,
         includePovInfo: true,
@@ -370,6 +370,8 @@ If no specific instructions are given, perform a thorough editorial pass:
 - Improve transitions between scenes and paragraphs
 - Strengthen the opening and closing lines
 
+CRITICAL LENGTH RULE: Your output MUST be approximately the same length as the input chapter (within ±10%). Do not summarise, truncate, or significantly expand the text. Every scene that exists in the original must exist in the edited version.
+
 Return ONLY the edited chapter text. Do not include commentary, preamble, explanations, or headings. Output the full chapter from start to finish.`,
         temperature: 0.7,
         maxTokens: 8192,
@@ -522,6 +524,22 @@ export async function seedSystemAgents(force: boolean = false): Promise<void> {
     try {
         console.log(`[AgentSeeder] Checking for system agents... (force update: ${force})`);
 
+        // When force=true, wipe all existing system agents and pipelines so everything
+        // is recreated from the current SYSTEM_AGENT_PRESETS definitions.
+        if (force) {
+            console.log('[AgentSeeder] Force mode: deleting all existing system agents and pipelines...');
+            const systemAgentIds = await db.agentPresets
+                .filter(a => a.isSystem === true)
+                .primaryKeys();
+            await db.agentPresets.bulkDelete(systemAgentIds as string[]);
+
+            const systemPipelineIds = await db.pipelinePresets
+                .filter(p => p.isSystem === true)
+                .primaryKeys();
+            await db.pipelinePresets.bulkDelete(systemPipelineIds as string[]);
+            console.log(`[AgentSeeder] Deleted ${systemAgentIds.length} agents and ${systemPipelineIds.length} pipelines.`);
+        }
+
         // Get existing system agents and pipelines by name for uniqueness check
         const existingAgents = await db.agentPresets
             .filter(a => a.isSystem === true)
@@ -540,12 +558,9 @@ export async function seedSystemAgents(force: boolean = false): Promise<void> {
         }, {} as Record<AgentRole, AgentPreset>);
 
         // Create system agent presets (only if not already exists by name)
-        // Note: We generally don't force update agents to avoid overwriting user customizations to system prompts
         const createdAgents: AgentPreset[] = [];
         for (const preset of SYSTEM_AGENT_PRESETS) {
             if (existingAgentNames.has(preset.name)) {
-                // If force is true, we could update agents here, but it's risky.
-                // For now, we assume agent definitions act as templates that users might tweak.
                 continue;
             }
 

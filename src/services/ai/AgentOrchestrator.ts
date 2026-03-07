@@ -657,12 +657,21 @@ Provide the improved version:`;
         const chapterText = input.previousWords || '';
         const editInstructions = input.scenebeat || '';
 
+        // Cap each lorebook description to avoid token overflow when editing long chapters.
+        // The model must output the full chapter back, so we budget tightly for lore context.
+        const MAX_LORE_DESC_CHARS = 300;
+
         let message = '';
 
         // Include lorebook so the editor can preserve lore-accurate details
         if (lorebookEntries.length > 0) {
             const lorebookContext = lorebookEntries
-                .map(e => `[${e.category?.toUpperCase() ?? 'LORE'}] ${e.name}: ${e.description}`)
+                .map(e => {
+                    const desc = e.description.length > MAX_LORE_DESC_CHARS
+                        ? e.description.slice(0, MAX_LORE_DESC_CHARS) + '…'
+                        : e.description;
+                    return `[${e.category?.toUpperCase() ?? 'LORE'}] ${e.name}: ${desc}`;
+                })
                 .join('\n\n');
             message += `ESTABLISHED LORE & CHARACTERS:\n${lorebookContext}\n\n`;
         }
@@ -691,12 +700,19 @@ Provide the improved version:`;
         const chapterText = input.previousWords || '';
         const reviewFocus = input.scenebeat || '';
 
+        const MAX_LORE_DESC_CHARS = 300;
+
         let message = '';
 
         // Add lorebook context so the reviewer can check for lore consistency
         if (lorebookEntries.length > 0) {
             const lorebookContext = lorebookEntries
-                .map(e => `[${e.category?.toUpperCase() ?? 'LORE'}] ${e.name}: ${e.description}`)
+                .map(e => {
+                    const desc = e.description.length > MAX_LORE_DESC_CHARS
+                        ? e.description.slice(0, MAX_LORE_DESC_CHARS) + '…'
+                        : e.description;
+                    return `[${e.category?.toUpperCase() ?? 'LORE'}] ${e.name}: ${desc}`;
+                })
                 .join('\n\n');
             message += `ESTABLISHED LORE & CHARACTERS:\n${lorebookContext}\n\n`;
         }

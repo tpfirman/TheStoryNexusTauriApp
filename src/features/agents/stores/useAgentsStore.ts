@@ -114,6 +114,17 @@ Review the chapter across the following dimensions:
 
 Be honest but constructive. Lead with what works well, then address what can be improved.`,
 
+    chapter_editor: `You are an expert fiction editor. Your job is to rewrite and improve a chapter based on the review feedback provided.
+
+Focus on:
+1. **Prose polishing**: Improve sentence rhythm, word choice, and flow
+2. **Show vs tell**: Convert telling passages into vivid, sensory scenes
+3. **Dialogue**: Sharpen character voices and remove on-the-nose exchanges
+4. **Pacing**: Trim slow sections, expand rushed moments
+5. **Consistency**: Ensure character behaviour and lore details are accurate
+
+Preserve the author's voice and the core story beats. Return the full rewritten chapter text.`,
+
     custom: `You are a helpful AI assistant. Follow the instructions provided and assist with the writing task.`
 };
 
@@ -151,8 +162,14 @@ interface AgentsState {
     savePipelineExecution: (execution: Omit<PipelineExecution, 'id' | 'createdAt'>) => Promise<string>;
     deletePipelineExecution: (id: string) => Promise<void>;
 
+    // Bulk Operations
+    bulkUpdateAgentPresets: (ids: string[], data: Partial<AgentPreset>) => Promise<void>;
+    bulkUpdateAgentModel: (ids: string[], model: AllowedModel) => Promise<void>;
+    bulkUpdatePipelinePresets: (ids: string[], data: Partial<PipelinePreset>) => Promise<void>;
+
     // Utility
     createDefaultAgentPreset: (role: AgentRole, model: AllowedModel, storyId?: string | null) => Promise<AgentPreset>;
+    resetSystemDefaults: (storyId?: string | null) => Promise<void>;
 }
 
 export const useAgentsStore = create<AgentsState>((set, get) => ({
@@ -332,6 +349,19 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
     },
 
     // Utility
+    resetSystemDefaults: async (storyId?: string | null) => {
+        set({ isLoadingPresets: true, isLoadingPipelines: true });
+        try {
+            await seedSystemAgents(true);
+            await get().loadAgentPresets(storyId);
+            await get().loadPipelinePresets(storyId);
+        } catch (error) {
+            console.error('[AgentsStore] Failed to reset system defaults:', error);
+            set({ isLoadingPresets: false, isLoadingPipelines: false });
+            throw error;
+        }
+    },
+
     createDefaultAgentPreset: async (role, model, storyId = null) => {
         const roleNames: Record<AgentRole, string> = {
             summarizer: 'Summarizer',
@@ -362,5 +392,41 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         };
 
         return get().createAgentPreset(preset);
+    },
+
+    // Bulk update multiple agents with partial data
+    bulkUpdateAgentPresets: async (ids, data) => {
+        await db.agentPresets.bulkUpdate(
+            ids.map(id => ({ key: id, changes: data }))
+        );
+        set(state => ({
+            agentPresets: state.agentPresets.map(p =>
+                ids.includes(p.id) ? { ...p, ...data } : p
+            )
+        }));
+    },
+
+    // Bulk update agent model
+    bulkUpdateAgentModel: async (ids, model) => {
+        await db.agentPresets.bulkUpdate(
+            ids.map(id => ({ key: id, changes: { model } }))
+        );
+        set(state => ({
+            agentPresets: state.agentPresets.map(p =>
+                ids.includes(p.id) ? { ...p, model } : p
+            )
+        }));
+    },
+
+    // Bulk update multiple pipelines with partial data
+    bulkUpdatePipelinePresets: async (ids, data) => {
+        await db.pipelinePresets.bulkUpdate(
+            ids.map(id => ({ key: id, changes: data }))
+        );
+        set(state => ({
+            pipelinePresets: state.pipelinePresets.map(p =>
+                ids.includes(p.id) ? { ...p, ...data } : p
+            )
+        }));
     },
 }));

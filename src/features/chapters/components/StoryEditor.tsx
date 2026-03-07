@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book, Microscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
@@ -50,9 +50,30 @@ type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNote
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
+    const [editorialWidth, setEditorialWidth] = useState(480);
     const { currentChapterId, currentStoryId } = useStoryContext();
     const isMobile = useIsMobile();
     const navigate = useNavigate();
+
+    const startEditorialDrag = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const startWidth = editorialWidth;
+        const onMouseMove = (ev: MouseEvent) => {
+            // dragging left increases width (panel is on the right)
+            const next = Math.min(
+                Math.max(startWidth + (startX - ev.clientX), 320),
+                window.innerWidth - 80
+            );
+            setEditorialWidth(next);
+        };
+        const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    }, [editorialWidth]);
 
     const handleOpenDrawer = (drawer: DrawerType) => {
         setOpenDrawer(drawer === openDrawer ? null : drawer);
@@ -434,16 +455,30 @@ export function StoryEditor() {
             </Sheet>
 
             {/* AI Editorial Sheet */}
-            <Sheet open={openDrawer === "chapterReview"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+            <Sheet open={openDrawer === "chapterReview"} onOpenChange={(open) => { if (!open) { setOpenDrawer(null); setEditorialWidth(480); } }}>
                 <SheetContent
                     side="right"
-                    className="h-[100vh] w-full md:min-w-[600px] md:w-auto"
+                    className="h-[100vh] w-full max-w-none overflow-hidden"
+                    style={{ width: `${editorialWidth}px` }}
                 >
+                    {/* Drag handle on the left edge */}
+                    <div
+                        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10 hover:bg-primary/20 active:bg-primary/30 transition-colors"
+                        onMouseDown={startEditorialDrag}
+                    />
                     <SheetHeader>
                         <SheetTitle>AI Editorial</SheetTitle>
                     </SheetHeader>
                     <div className="overflow-y-auto h-[calc(100vh-80px)] px-4 pt-2">
-                        <AIEditorialPanel />
+                        <AIEditorialPanel
+                            isExpanded={editorialWidth > 750}
+                            onExpandChange={(expand) =>
+                                setEditorialWidth(expand
+                                    ? Math.round(window.innerWidth * 0.9)
+                                    : 480
+                                )
+                            }
+                        />
                     </div>
                 </SheetContent>
             </Sheet>        </div>

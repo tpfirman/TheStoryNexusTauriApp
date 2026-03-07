@@ -203,6 +203,7 @@ export interface LorebookEntry extends BaseEntity {
     customFields?: Record<string, unknown>;
   };
   isDisabled?: boolean;
+  isValid?: boolean;
 }
 
 // Prompt Parser types

@@ -3,7 +3,7 @@
  * to produce editorial feedback. Uses the existing agentic generation infrastructure.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bot, Copy, FileSearch, Loader2, RotateCcw, SquareX } from 'lucide-react';
+import { ArrowRight, Bot, Copy, FileSearch, Loader2, RotateCcw, SquareX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,7 @@ import { useAgenticGeneration } from '@/features/agents/hooks/useAgenticGenerati
 import type { PipelinePreset } from '@/types/story';
 import { toast } from 'react-toastify';
 
-export function ChapterReviewPanel() {
+export function ChapterReviewPanel({ onSendToEdit }: { onSendToEdit?: (reviewText: string) => void } = {}) {
     const { currentChapterId, currentStoryId } = useStoryContext();
     const { currentChapter, getChapterPlainText } = useChapterStore();
     const { entries: lorebookEntries } = useLorebookStore();
@@ -185,7 +185,7 @@ export function ChapterReviewPanel() {
                     value={reviewFocus}
                     onChange={(e) => setReviewFocus(e.target.value)}
                     disabled={isGenerating}
-                    className="resize-none text-sm"
+                    className="resize-y text-sm"
                 />
             </div>
 
@@ -232,17 +232,19 @@ export function ChapterReviewPanel() {
                             <Bot className="h-4 w-4" />
                             Review
                         </div>
-                        {displayOutput && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => handleCopy(displayOutput)}
-                                title="Copy review"
-                            >
-                                <Copy className="h-3 w-3" />
-                            </Button>
-                        )}
+                        <div className="flex items-center gap-1">
+                            {displayOutput && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => handleCopy(displayOutput)}
+                                    title="Copy review"
+                                >
+                                    <Copy className="h-3 w-3" />
+                                </Button>
+                            )}
+                        </div>
                     </div>
                     <div
                         ref={outputRef}
@@ -290,6 +292,18 @@ export function ChapterReviewPanel() {
                 <p className="text-xs text-muted-foreground text-center">
                     {stepResults.length} agent step{stepResults.length !== 1 ? 's' : ''} completed
                 </p>
+            )}
+
+            {/* Send to Edit button — only shown when review is complete and parent supports it */}
+            {!isGenerating && finalOutput && onSendToEdit && (
+                <Button
+                    variant="default"
+                    className="w-full"
+                    onClick={() => onSendToEdit(finalOutput)}
+                >
+                    <ArrowRight className="h-4 w-4 mr-2" />
+                    Send Review to Edit Tab
+                </Button>
             )}
         </div>
     );
