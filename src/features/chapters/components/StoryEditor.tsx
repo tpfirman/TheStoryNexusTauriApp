@@ -51,7 +51,7 @@ type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNote
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
-    const [editorialWidth, setEditorialWidth] = useState(480);
+    const [editorialWidth, setEditorialWidth] = useState(() => Math.round(window.innerWidth * 0.6));
     const { currentChapterId, currentStoryId } = useStoryContext();
     const saveStatus = useChapterStore((s) => s.saveStatus);
     const isMobile = useIsMobile();
@@ -475,7 +475,7 @@ export function StoryEditor() {
             </Sheet>
 
             {/* AI Editorial Sheet */}
-            <Sheet open={openDrawer === "chapterReview"} onOpenChange={(open) => { if (!open) { setOpenDrawer(null); setEditorialWidth(480); } }}>
+            <Sheet open={openDrawer === "chapterReview"} onOpenChange={(open) => { if (!open) { setOpenDrawer(null); setEditorialWidth(Math.round(window.innerWidth * 0.6)); } }}>
                 <SheetContent
                     side="right"
                     className="h-[100vh] w-full max-w-none overflow-hidden"
@@ -495,7 +495,7 @@ export function StoryEditor() {
                             onExpandChange={(expand) =>
                                 setEditorialWidth(expand
                                     ? Math.round(window.innerWidth * 0.9)
-                                    : 480
+                                    : Math.round(window.innerWidth * 0.6)
                                 )
                             }
                         />
