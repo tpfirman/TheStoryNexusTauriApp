@@ -82,6 +82,7 @@ export class AgentOrchestrator {
             onStepStart?: (step: ExecutablePipelineStep, index: number) => void;
             onStepComplete?: (result: AgentResult, index: number) => void;
             onToken?: (token: string) => void;
+            onNewStreamingStep?: () => void;
             onError?: (error: Error, stepIndex: number) => void;
         }
     ): Promise<PipelineResult> {
@@ -143,6 +144,9 @@ export class AgentOrchestrator {
 
                     let output: string;
                     if (shouldStream && callbacks?.onToken) {
+                        // Clear any previously streamed output before this step starts streaming,
+                        // so revision steps replace the initial output rather than appending to it.
+                        callbacks.onNewStreamingStep?.();
                         output = await this.generateStreaming(step.agent, messages, callbacks.onToken);
                     } else {
                         output = await this.generateNonStreaming(step.agent, messages);
@@ -223,6 +227,7 @@ export class AgentOrchestrator {
             onStepStart?: (step: ExecutablePipelineStep, index: number) => void;
             onStepComplete?: (result: AgentResult, index: number) => void;
             onToken?: (token: string) => void;
+            onNewStreamingStep?: () => void;
             onError?: (error: Error, stepIndex: number) => void;
         }
     ): Promise<PipelineResult> {

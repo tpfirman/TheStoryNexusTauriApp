@@ -8,6 +8,7 @@ export interface AgenticGenerationCallbacks {
     onStepStart?: (stepIndex: number, agentName: string, step?: ExecutablePipelineStep) => void;
     onStepComplete?: (result: AgentResult, stepIndex: number) => void;
     onToken?: (token: string) => void;
+    onNewStreamingStep?: () => void;
     onComplete?: (result: PipelineResult) => void;
     onError?: (error: Error) => void;
 }
@@ -74,6 +75,7 @@ export function useAgenticGeneration() {
                         callbacks?.onStepComplete?.(stepResult, stepIndex);
                     },
                     onToken: callbacks?.onToken,
+                    onNewStreamingStep: callbacks?.onNewStreamingStep,
                 }
             );
 
