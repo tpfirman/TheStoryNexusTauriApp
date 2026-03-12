@@ -83,6 +83,30 @@ const CONTEXT_CONFIGS: Record<string, AgentContextConfig> = {
         includeChapterSummary: false,
         includePovInfo: false,
     },
+    chapter_reviewer: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'full',
+        includeChapterSummary: false,
+        includePovInfo: true,
+    },
+    chapter_editor: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'full',
+        includeChapterSummary: false,
+        includePovInfo: true,
+    },
+    lore_writer: {
+        lorebookMode: 'none',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    lore_refiner: {
+        lorebookMode: 'none',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
 };
 
 // System agent presets with template variables
@@ -316,6 +340,106 @@ Response format:
         storyId: null,
         contextConfig: CONTEXT_CONFIGS.refusal_checker,
     },
+    {
+        name: 'System Chapter Reviewer',
+        description: 'Reviews an entire chapter for prose quality, consistency, pacing, and provides editorial feedback.',
+        role: 'chapter_reviewer',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are an expert fiction editor and literary critic. Your job is to review a complete chapter and provide detailed, constructive feedback.
+
+Review the chapter across these dimensions:
+
+1. **Prose Quality**: Sentence variety, word choice, show vs. tell balance, rhythm and flow
+2. **Character Consistency**: Are characters acting true to their established traits? Is dialogue authentic?
+3. **Pacing**: Does the chapter move at an appropriate speed? Are there slow or rushed sections?
+4. **Scene Structure**: Is there a clear opening, middle, and payoff? Does tension build effectively?
+5. **Lore & Continuity**: Any contradictions with established world-building or character facts?
+6. **Dialogue**: Natural? Distinct character voices? Subtext present where appropriate?
+7. **Emotional Impact**: Does the chapter land emotionally? Are the stakes clear and felt?
+8. **Strengths**: What works well and should be preserved?
+9. **Suggestions**: Specific, actionable improvements with brief examples where helpful.
+
+Be honest but constructive. Lead with what works, then address what can be improved. Be specific — generic praise or criticism is not useful.`,
+        temperature: 0.4,
+        maxTokens: 3000,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.chapter_reviewer,
+    },
+    {
+        name: 'System Chapter Editor',
+        description: 'Rewrites and edits an entire chapter based on instructions. Uses high token limit for full-chapter output.',
+        role: 'chapter_editor',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are a professional fiction editor. You will receive the full text of a chapter and editing instructions (if any). Your task is to rewrite and edit the chapter while preserving the author's voice and intent.
+
+If no specific instructions are given, perform a thorough editorial pass:
+- Improve sentence variety and pacing
+- Tighten prose (remove redundancy and unnecessary words)
+- Enhance show vs. tell throughout
+- Polish dialogue for naturalness and distinct character voice
+- Fix pacing and tension issues
+- Improve transitions between scenes and paragraphs
+- Strengthen the opening and closing lines
+
+CRITICAL LENGTH RULE: Your output MUST be approximately the same length as the input chapter (within ±10%). Do not summarise, truncate, or significantly expand the text. Every scene that exists in the original must exist in the edited version.
+
+Return ONLY the edited chapter text. Do not include commentary, preamble, explanations, or headings. Output the full chapter from start to finish.`,
+        temperature: 0.7,
+        maxTokens: 8192,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.chapter_editor,
+    },
+    {
+        name: 'System Lore Writer',
+        description: 'Creates new lorebook entries from a seed concept. Use in the Lorebook Workshop.',
+        role: 'lore_writer',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are a lorebook entry creator for a fiction writing tool. Your job is to generate a single, well-structured lorebook entry from a seed concept provided by the user.
+
+Output ONLY a single JSON object wrapped in a \`\`\`json code fence — no prose, no commentary, nothing else.
+
+The JSON object must use these fields:
+- "name": string (required) — the entry's primary name
+- "category": one of "character" | "location" | "item" | "event" | "note" | "synopsis" | "starting scenario" | "timeline" (required)
+- "description": string (required) — rich, detailed description covering all relevant aspects
+- "tags": string[] — keywords for matching this entry in context (include aliases, related terms)
+- "metadata": object (optional) — may include:
+  - "type": string (e.g. "Protagonist", "Villain", "Capital City", "Weapon")
+  - "importance": "major" | "minor" | "background"
+  - "status": "active" | "inactive" | "historical"
+
+Write a description that is vivid and specific. Use the aspects the user requests or the template guidance they provide. Do not pad with generic filler.`,
+        temperature: 0.75,
+        maxTokens: 2048,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.lore_writer,
+    },
+    {
+        name: 'System Lore Refiner',
+        description: 'Iteratively refines existing lorebook entries based on user instructions. Use in the Lorebook Workshop.',
+        role: 'lore_refiner',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are a lorebook entry editor for a fiction writing tool. You will receive an existing lorebook entry as your prior output, and the user will give you instructions to refine it.
+
+Output ONLY the updated JSON object wrapped in a \`\`\`json code fence — no prose, no commentary, nothing else.
+
+Use the same field structure as the entry you received:
+- "name": string (required)
+- "category": one of "character" | "location" | "item" | "event" | "note" | "synopsis" | "starting scenario" | "timeline" (required)
+- "description": string (required)
+- "tags": string[]
+- "metadata": object (optional) with "type", "importance", "status"
+
+Preserve existing content that the user does not ask you to change. Apply the user's refinement instructions precisely. Return the complete updated entry, not just the changed fields.`,
+        temperature: 0.7,
+        maxTokens: 2048,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.lore_refiner,
+    },
 ];
 
 // System pipeline presets
@@ -409,6 +533,37 @@ const SYSTEM_PIPELINE_PRESETS: {
             },
         ],
     },
+    {
+        name: 'Chapter Review',
+        description: 'Reviews an entire chapter for prose quality, consistency, pacing, and provides detailed editorial feedback.',
+        agentRoles: [
+            { role: 'chapter_reviewer', streamOutput: true },
+        ],
+    },
+    {
+        name: 'Chapter Deep Review',
+        description: 'Reviews a chapter then follows up with a lore and continuity check.',
+        agentRoles: [
+            { role: 'chapter_reviewer', streamOutput: true },
+            { role: 'lore_judge' },
+            { role: 'continuity_checker' },
+        ],
+    },
+    {
+        name: 'Chapter Edit',
+        description: 'Rewrites and edits the full chapter in a single pass. Best for general editorial polish.',
+        agentRoles: [
+            { role: 'chapter_editor', streamOutput: true },
+        ],
+    },
+    {
+        name: 'Chapter Review then Edit',
+        description: 'Reviews the chapter first, then produces a fully edited version addressing the identified issues.',
+        agentRoles: [
+            { role: 'chapter_reviewer' },
+            { role: 'chapter_editor', streamOutput: true },
+        ],
+    },
 ];
 
 // Simple lock to prevent concurrent seeding
@@ -430,6 +585,22 @@ export async function seedSystemAgents(force: boolean = false): Promise<void> {
     try {
         console.log(`[AgentSeeder] Checking for system agents... (force update: ${force})`);
 
+        // When force=true, wipe all existing system agents and pipelines so everything
+        // is recreated from the current SYSTEM_AGENT_PRESETS definitions.
+        if (force) {
+            console.log('[AgentSeeder] Force mode: deleting all existing system agents and pipelines...');
+            const systemAgentIds = await db.agentPresets
+                .filter(a => a.isSystem === true)
+                .primaryKeys();
+            await db.agentPresets.bulkDelete(systemAgentIds as string[]);
+
+            const systemPipelineIds = await db.pipelinePresets
+                .filter(p => p.isSystem === true)
+                .primaryKeys();
+            await db.pipelinePresets.bulkDelete(systemPipelineIds as string[]);
+            console.log(`[AgentSeeder] Deleted ${systemAgentIds.length} agents and ${systemPipelineIds.length} pipelines.`);
+        }
+
         // Get existing system agents and pipelines by name for uniqueness check
         const existingAgents = await db.agentPresets
             .filter(a => a.isSystem === true)
@@ -448,12 +619,9 @@ export async function seedSystemAgents(force: boolean = false): Promise<void> {
         }, {} as Record<AgentRole, AgentPreset>);
 
         // Create system agent presets (only if not already exists by name)
-        // Note: We generally don't force update agents to avoid overwriting user customizations to system prompts
         const createdAgents: AgentPreset[] = [];
         for (const preset of SYSTEM_AGENT_PRESETS) {
             if (existingAgentNames.has(preset.name)) {
-                // If force is true, we could update agents here, but it's risky.
-                // For now, we assume agent definitions act as templates that users might tweak.
                 continue;
             }
 

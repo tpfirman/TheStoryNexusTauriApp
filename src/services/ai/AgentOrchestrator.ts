@@ -298,8 +298,9 @@ export class AgentOrchestrator {
         // Push prompt mode: build multi-turn chat memory
         // [system, originalUser, assistantRefusal, pushPromptUser]
         if (isRevision && step?.pushPrompt && previousResults.length > 0) {
-            // Find the prose writer's original output (the refusal)
-            const proseResult = previousResults.find(r => r.role === 'prose_writer');
+            // Find the MOST RECENT prose writer output (last iteration, not first)
+            const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
+            const proseResult = [...previousResults].reverse().find(r => proseRoles.includes(r.role));
             const previousOutput = proseResult?.output || previousResults[previousResults.length - 1]?.output || '';
 
             // Feedback from the checker (e.g. refusal_checker or lore_judge)
@@ -463,6 +464,12 @@ export class AgentOrchestrator {
 
             case 'scenebeat_generator':
                 return this.buildScenebeatGeneratorMessage(agent, input, previousResults);
+
+            case 'chapter_reviewer':
+                return this.buildChapterReviewerMessage(agent, input);
+
+            case 'chapter_editor':
+                return this.buildChapterEditorMessage(agent, input);
 
             case 'custom':
             default:
@@ -646,8 +653,94 @@ Provide the improved version:`;
         return message;
     }
 
-    private buildCustomMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
-        const config = this.getEffectiveContextConfig(agent);
+    private buildChapterEditorMessage(agent: AgentPreset, input: PipelineInput): string {
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const chapterText = input.previousWords || '';
+        const editInstructions = input.scenebeat || '';
+
+        // Cap each lorebook description to avoid token overflow when editing long chapters.
+        // The model must output the full chapter back, so we budget tightly for lore context.
+        const MAX_LORE_DESC_CHARS = 300;
+
+        let message = '';
+
+        // Include lorebook so the editor can preserve lore-accurate details
+        if (lorebookEntries.length > 0) {
+            const lorebookContext = lorebookEntries
+                .map(e => {
+                    const desc = e.description.length > MAX_LORE_DESC_CHARS
+                        ? e.description.slice(0, MAX_LORE_DESC_CHARS) + '…'
+                        : e.description;
+                    return `[${e.category?.toUpperCase() ?? 'LORE'}] ${e.name}: ${desc}`;
+                })
+                .join('\n\n');
+            message += `ESTABLISHED LORE & CHARACTERS:\n${lorebookContext}\n\n`;
+        }
+
+        // Add POV info so voice is preserved
+        if (input.povType) {
+            message += `POV: ${input.povType}`;
+            if (input.povCharacter) {
+                message += ` (${input.povCharacter})`;
+            }
+            message += '\n\n';
+        }
+
+        message += `CHAPTER TO EDIT:\n${chapterText}\n\n`;
+
+        if (editInstructions) {
+            message += `EDITING INSTRUCTIONS:\n${editInstructions}\n\n`;
+        }
+
+        message += `---\nReturn the complete edited chapter text and nothing else:`;
+
+        return message;
+    }
+
+    private buildChapterReviewerMessage(agent: AgentPreset, input: PipelineInput): string {        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const chapterText = input.previousWords || '';
+        const reviewFocus = input.scenebeat || '';
+
+        const MAX_LORE_DESC_CHARS = 300;
+
+        let message = '';
+
+        // Add lorebook context so the reviewer can check for lore consistency
+        if (lorebookEntries.length > 0) {
+            const lorebookContext = lorebookEntries
+                .map(e => {
+                    const desc = e.description.length > MAX_LORE_DESC_CHARS
+                        ? e.description.slice(0, MAX_LORE_DESC_CHARS) + '…'
+                        : e.description;
+                    return `[${e.category?.toUpperCase() ?? 'LORE'}] ${e.name}: ${desc}`;
+                })
+                .join('\n\n');
+            message += `ESTABLISHED LORE & CHARACTERS:\n${lorebookContext}\n\n`;
+        }
+
+        // Add POV info if available
+        if (input.povType) {
+            message += `POV: ${input.povType}`;
+            if (input.povCharacter) {
+                message += ` (${input.povCharacter})`;
+            }
+            message += '\n\n';
+        }
+
+        // Add the chapter text to review
+        message += `CHAPTER TEXT TO REVIEW:\n${chapterText}\n\n`;
+
+        // Add optional reviewer focus/instructions
+        if (reviewFocus) {
+            message += `REVIEW FOCUS:\n${reviewFocus}\n\n`;
+        }
+
+        message += `---\nPlease provide a detailed review of the chapter above.`;
+
+        return message;
+    }
+
+    private buildCustomMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {        const config = this.getEffectiveContextConfig(agent);
         const lorebookEntries = this.getLorebookForAgent(agent, input);
         const contextText = this.getPreviousWordsForAgent(agent, input, previousResults);
         
@@ -967,7 +1060,7 @@ Provide the improved version:`;
 
         switch (model.provider) {
             case 'local':
-                return aiService.generateWithLocalModel(messages, temperature, maxTokens);
+                return aiService.generateWithLocalModel(messages, temperature, maxTokens, undefined, undefined, undefined, undefined, model.id);
             case 'openai':
                 return aiService.generateWithOpenAI(messages, model.id, temperature, maxTokens);
             case 'openrouter':

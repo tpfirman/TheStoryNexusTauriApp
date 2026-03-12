@@ -203,6 +203,7 @@ export interface LorebookEntry extends BaseEntity {
     customFields?: Record<string, unknown>;
   };
   isDisabled?: boolean;
+  isValid?: boolean;
 }
 
 // Prompt Parser types
@@ -274,6 +275,10 @@ export type AgentRole =
   | "style_extractor" // Extracts writing style from sample text
   | "scenebeat_generator" // Generates scene beat commands
   | "refusal_checker" // Detects if the LLM refused to generate content
+  | "chapter_reviewer" // Reviews an entire chapter for quality, consistency, and suggestions
+  | "chapter_editor" // Rewrites/edits an entire chapter based on instructions
+  | "lore_writer" // Creates new lorebook entries from a seed concept
+  | "lore_refiner" // Iteratively refines existing lorebook entries
   | "custom"; // User-defined agent role
 
 // Context configuration for agents - controls what data is sent to the LLM
@@ -371,6 +376,30 @@ export const DEFAULT_CONTEXT_CONFIG: Record<AgentRole, AgentContextConfig> = {
     includePovInfo: true,
   },
   refusal_checker: {
+    lorebookMode: "none",
+    previousWordsMode: "none",
+    includeChapterSummary: false,
+    includePovInfo: false,
+  },
+  chapter_reviewer: {
+    lorebookMode: "all",
+    previousWordsMode: "full",
+    includeChapterSummary: false,
+    includePovInfo: true,
+  },
+  chapter_editor: {
+    lorebookMode: "all",
+    previousWordsMode: "full",
+    includeChapterSummary: false,
+    includePovInfo: true,
+  },
+  lore_writer: {
+    lorebookMode: "none",
+    previousWordsMode: "none",
+    includeChapterSummary: false,
+    includePovInfo: false,
+  },
+  lore_refiner: {
     lorebookMode: "none",
     previousWordsMode: "none",
     includeChapterSummary: false,

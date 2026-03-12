@@ -9,6 +9,8 @@ interface ChapterState {
     error: string | null;
     summariesSoFar: string;
     lastEditedChapterIds: Record<string, string>; // Map of storyId -> chapterId
+    /** 'idle' | 'saving' | 'saved' — driven by SaveChapterContentPlugin */
+    saveStatus: 'idle' | 'saving' | 'saved';
 
     // Actions
     fetchChapters: (storyId: string) => Promise<void>;
@@ -42,6 +44,7 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
     loading: false,
     error: null,
     summariesSoFar: '',
+    saveStatus: 'idle',
     lastEditedChapterIds: JSON.parse(localStorage.getItem('lastEditedChapterIds') || '{}'),
 
     // Fetch all chapters for a story

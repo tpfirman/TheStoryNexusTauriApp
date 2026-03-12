@@ -356,13 +356,19 @@ export class AIService {
         top_p?: number,
         top_k?: number,
         repetition_penalty?: number,
-        min_p?: number
+        min_p?: number,
+        modelId?: string
     ): Promise<Response> {
+        // Strip the "local/" prefix — LMStudio expects bare model IDs (e.g. "llama-3.2-3b-instruct")
+        const bareModelId = modelId
+            ? modelId.replace(/^local\//, '')
+            : (this.settings?.availableModels?.find(m => m.provider === 'local')?.id ?? 'local').replace(/^local\//, '');
+
         // Create request body with optional parameters
         const requestBody: any = {
             messages,
             stream: true,
-            model: 'local/llama-3.2-3b-instruct',
+            model: bareModelId,
             temperature,
             max_tokens: maxTokens,
         };
