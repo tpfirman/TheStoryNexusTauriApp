@@ -51,11 +51,13 @@ function ChapterEditContent({
     setEditInstructions,
     isExpanded,
     onExpandChange,
+    chapterId,
 }: {
     editInstructions: string;
     setEditInstructions: (v: string) => void;
     isExpanded: boolean;
     onExpandChange: (v: boolean) => void;
+    chapterId: string | null | undefined;
 }) {
     const { currentChapterId } = useStoryContext();
     const { currentChapter, getChapterPlainText } = useChapterStore();
@@ -69,12 +71,18 @@ function ChapterEditContent({
         getAvailablePipelines,
     } = useAgenticGeneration();
 
+    const ssKey = chapterId ? `editorial-edit-${chapterId}` : null;
+
     const [pipelines, setPipelines] = useState<PipelinePreset[]>([]);
     const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
     const [streamedOutput, setStreamedOutput] = useState('');
-    const [finalOutput, setFinalOutput] = useState('');
-    const [originalText, setOriginalText] = useState('');
-    const [hasRun, setHasRun] = useState(false);
+    const [finalOutput, setFinalOutput] = useState(() =>
+        ssKey ? (sessionStorage.getItem(ssKey + '-output') || '') : ''
+    );
+    const [originalText, setOriginalText] = useState(() =>
+        ssKey ? (sessionStorage.getItem(ssKey + '-original') || '') : ''
+    );
+    const [hasRun, setHasRun] = useState(() => !!(ssKey && sessionStorage.getItem(ssKey + '-output')));
     const outputRef = useRef<HTMLDivElement>(null);
     const originalRef = useRef<HTMLDivElement>(null);
 
@@ -94,6 +102,17 @@ function ChapterEditContent({
             }
         });
     }, [getAvailablePipelines]);
+
+    // Persist finalOutput and originalText to sessionStorage
+    useEffect(() => {
+        if (!ssKey) return;
+        sessionStorage.setItem(ssKey + '-output', finalOutput);
+    }, [ssKey, finalOutput]);
+
+    useEffect(() => {
+        if (!ssKey) return;
+        sessionStorage.setItem(ssKey + '-original', originalText);
+    }, [ssKey, originalText]);
 
     // Auto-scroll output as tokens arrive
     useEffect(() => {
@@ -175,6 +194,10 @@ function ChapterEditContent({
         setFinalOutput('');
         setOriginalText('');
         setHasRun(false);
+        if (ssKey) {
+            sessionStorage.removeItem(ssKey + '-output');
+            sessionStorage.removeItem(ssKey + '-original');
+        }
     };
 
     const displayOutput = finalOutput || streamedOutput;
@@ -389,8 +412,35 @@ export function AIEditorialPanel({
     isExpanded?: boolean;
     onExpandChange?: (v: boolean) => void;
 }) {
-    const [activeTab, setActiveTab] = useState('review');
-    const [editInstructions, setEditInstructions] = useState('');
+    const { currentChapterId } = useStoryContext();
+    const ssKey = currentChapterId ? `editorial-state-${currentChapterId}` : null;
+
+    const [activeTab, setActiveTab] = useState(() => {
+        if (!ssKey) return 'review';
+        return sessionStorage.getItem(ssKey + '-tab') || 'review';
+    });
+    const [editInstructions, setEditInstructions] = useState(() => {
+        if (!ssKey) return '';
+        return sessionStorage.getItem(ssKey + '-instructions') || '';
+    });
+
+    // Reset state when chapter changes
+    useEffect(() => {
+        const key = currentChapterId ? `editorial-state-${currentChapterId}` : null;
+        setActiveTab(key ? (sessionStorage.getItem(key + '-tab') || 'review') : 'review');
+        setEditInstructions(key ? (sessionStorage.getItem(key + '-instructions') || '') : '');
+    }, [currentChapterId]);
+
+    // Persist tab + instructions to sessionStorage
+    useEffect(() => {
+        if (!ssKey) return;
+        sessionStorage.setItem(ssKey + '-tab', activeTab);
+    }, [ssKey, activeTab]);
+
+    useEffect(() => {
+        if (!ssKey) return;
+        sessionStorage.setItem(ssKey + '-instructions', editInstructions);
+    }, [ssKey, editInstructions]);
 
     const handleSendToEdit = (reviewText: string) => {
         setEditInstructions(reviewText);
@@ -411,7 +461,7 @@ export function AIEditorialPanel({
             </TabsList>
 
             <TabsContent value="review" className="mt-3">
-                <ChapterReviewPanel onSendToEdit={handleSendToEdit} />
+                <ChapterReviewPanel onSendToEdit={handleSendToEdit} chapterId={currentChapterId} />
             </TabsContent>
 
             <TabsContent value="edit" className="mt-3">
@@ -420,6 +470,7 @@ export function AIEditorialPanel({
                     setEditInstructions={setEditInstructions}
                     isExpanded={isExpanded}
                     onExpandChange={onExpandChange ?? (() => {})}
+                    chapterId={currentChapterId}
                 />
             </TabsContent>
         </Tabs>

@@ -16,7 +16,13 @@ import { useAgenticGeneration } from '@/features/agents/hooks/useAgenticGenerati
 import type { PipelinePreset } from '@/types/story';
 import { toast } from 'react-toastify';
 
-export function ChapterReviewPanel({ onSendToEdit }: { onSendToEdit?: (reviewText: string) => void } = {}) {
+export function ChapterReviewPanel({
+    onSendToEdit,
+    chapterId,
+}: {
+    onSendToEdit?: (reviewText: string) => void;
+    chapterId?: string | null;
+} = {}) {
     const { currentChapterId, currentStoryId } = useStoryContext();
     const { currentChapter, getChapterPlainText } = useChapterStore();
     const { entries: lorebookEntries } = useLorebookStore();
@@ -30,13 +36,20 @@ export function ChapterReviewPanel({ onSendToEdit }: { onSendToEdit?: (reviewTex
         getAvailablePipelines,
     } = useAgenticGeneration();
 
+    const ssKey = chapterId ? `editorial-review-${chapterId}` : null;
+
     const [pipelines, setPipelines] = useState<PipelinePreset[]>([]);
     const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
     const [reviewFocus, setReviewFocus] = useState('');
     const [streamedOutput, setStreamedOutput] = useState('');
-    const [finalOutput, setFinalOutput] = useState('');
-    const [hasRun, setHasRun] = useState(false);
-    const [additionalResults, setAdditionalResults] = useState<{ agentName: string; output: string }[]>([]);
+    const [finalOutput, setFinalOutput] = useState(() =>
+        ssKey ? (sessionStorage.getItem(ssKey + '-output') || '') : ''
+    );
+    const [hasRun, setHasRun] = useState(() => !!(ssKey && sessionStorage.getItem(ssKey + '-output')));
+    const [additionalResults, setAdditionalResults] = useState<{ agentName: string; output: string }[]>(() => {
+        if (!ssKey) return [];
+        try { return JSON.parse(sessionStorage.getItem(ssKey + '-additional') || '[]'); } catch { return []; }
+    });
     const outputRef = useRef<HTMLDivElement>(null);
 
     // Load pipelines on mount
@@ -54,6 +67,17 @@ export function ChapterReviewPanel({ onSendToEdit }: { onSendToEdit?: (reviewTex
             }
         });
     }, [getAvailablePipelines]);
+
+    // Persist review output and additional results to sessionStorage
+    useEffect(() => {
+        if (!ssKey) return;
+        sessionStorage.setItem(ssKey + '-output', finalOutput);
+    }, [ssKey, finalOutput]);
+
+    useEffect(() => {
+        if (!ssKey) return;
+        sessionStorage.setItem(ssKey + '-additional', JSON.stringify(additionalResults));
+    }, [ssKey, additionalResults]);
 
     // Scroll output to bottom when streaming
     useEffect(() => {
@@ -151,6 +175,10 @@ export function ChapterReviewPanel({ onSendToEdit }: { onSendToEdit?: (reviewTex
         setFinalOutput('');
         setAdditionalResults([]);
         setHasRun(false);
+        if (ssKey) {
+            sessionStorage.removeItem(ssKey + '-output');
+            sessionStorage.removeItem(ssKey + '-additional');
+        }
     };
 
     const displayOutput = finalOutput || streamedOutput;
