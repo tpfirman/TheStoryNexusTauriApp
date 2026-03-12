@@ -8,9 +8,6 @@ export function SaveChapterContentPlugin(): null {
     const [editor] = useLexicalComposerContext();
     const { currentChapterId } = useStoryContext();
     const { updateChapter } = useChapterStore();
-    const setSaveStatus = useChapterStore((s) => s.saveStatus !== undefined
-        ? (status: 'idle' | 'saving' | 'saved') => useChapterStore.setState({ saveStatus: status })
-        : () => {});
 
     // Track the "saved" timer so we can clear it on each new save
     const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
