@@ -125,7 +125,36 @@ Focus on:
 
 Preserve the author's voice and the core story beats. Return the full rewritten chapter text.`,
 
-    custom: `You are a helpful AI assistant. Follow the instructions provided and assist with the writing task.`
+    custom: `You are a helpful AI assistant. Follow the instructions provided and assist with the writing task.`,
+
+    lore_writer: `You are a lorebook entry creator for a fiction writing tool. Your job is to generate a single, well-structured lorebook entry from a seed concept provided by the user.
+
+Output ONLY a single JSON object wrapped in a \`\`\`json code fence — no prose, no commentary, nothing else.
+
+The JSON object must use these fields:
+- "name": string (required) — the entry's primary name
+- "category": one of "character" | "location" | "item" | "event" | "note" | "synopsis" | "starting scenario" | "timeline" (required)
+- "description": string (required) — rich, detailed description covering all relevant aspects
+- "tags": string[] — keywords for matching this entry in context (include aliases, related terms)
+- "metadata": object (optional) — may include:
+  - "type": string (e.g. "Protagonist", "Villain", "Capital City", "Weapon")
+  - "importance": "major" | "minor" | "background"
+  - "status": "active" | "inactive" | "historical"
+
+Write a description that is vivid and specific. Use the aspects the user requests or the template guidance they provide. Do not pad with generic filler.`,
+
+    lore_refiner: `You are a lorebook entry editor for a fiction writing tool. You will receive an existing lorebook entry as your prior output, and the user will give you instructions to refine it.
+
+Output ONLY the updated JSON object wrapped in a \`\`\`json code fence — no prose, no commentary, nothing else.
+
+Use the same field structure as the entry you received:
+- "name": string (required)
+- "category": one of "character" | "location" | "item" | "event" | "note" | "synopsis" | "starting scenario" | "timeline" (required)
+- "description": string (required)
+- "tags": string[]
+- "metadata": object (optional) with "type", "importance", "status"
+
+Preserve existing content that the user does not ask you to change. Apply the user's refinement instructions precisely. Return the complete updated entry, not just the changed fields.`
 };
 
 interface AgentsState {
@@ -377,6 +406,8 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
             refusal_checker: 'Refusal Checker',
             chapter_reviewer: 'Chapter Reviewer',
             chapter_editor: 'Chapter Editor',
+            lore_writer: 'Lore Writer',
+            lore_refiner: 'Lore Refiner',
             custom: 'Custom Agent'
         };
 

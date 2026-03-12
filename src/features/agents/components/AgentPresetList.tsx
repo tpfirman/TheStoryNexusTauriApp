@@ -45,6 +45,8 @@ const ROLE_COLORS: Record<AgentRole, string> = {
     refusal_checker: 'bg-red-500/10 text-red-500 border-red-500/20',
     chapter_reviewer: 'bg-violet-500/10 text-violet-500 border-violet-500/20',
     chapter_editor: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    lore_writer: 'bg-lime-500/10 text-lime-500 border-lime-500/20',
+    lore_refiner: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
     custom: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
 };
 
@@ -62,6 +64,8 @@ const ROLE_LABELS: Record<AgentRole, string> = {
     refusal_checker: 'Refusal Checker',
     chapter_reviewer: 'Chapter Reviewer',
     chapter_editor: 'Chapter Editor',
+    lore_writer: 'Lore Writer',
+    lore_refiner: 'Lore Refiner',
     custom: 'Custom',
 };
 

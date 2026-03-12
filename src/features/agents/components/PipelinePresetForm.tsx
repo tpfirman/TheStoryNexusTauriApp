@@ -38,6 +38,8 @@ const ROLE_LABELS: Record<AgentRole, string> = {
     refusal_checker: 'Refusal Checker',
     chapter_reviewer: 'Chapter Reviewer',
     chapter_editor: 'Chapter Editor',
+    lore_writer: 'Lore Writer',
+    lore_refiner: 'Lore Refiner',
     custom: 'Custom',
 };
 

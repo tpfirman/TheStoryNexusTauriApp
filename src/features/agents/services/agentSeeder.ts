@@ -95,6 +95,18 @@ const CONTEXT_CONFIGS: Record<string, AgentContextConfig> = {
         includeChapterSummary: false,
         includePovInfo: true,
     },
+    lore_writer: {
+        lorebookMode: 'none',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    lore_refiner: {
+        lorebookMode: 'none',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
 };
 
 // System agent presets with template variables
@@ -378,6 +390,55 @@ Return ONLY the edited chapter text. Do not include commentary, preamble, explan
         isSystem: true,
         storyId: null,
         contextConfig: CONTEXT_CONFIGS.chapter_editor,
+    },
+    {
+        name: 'System Lore Writer',
+        description: 'Creates new lorebook entries from a seed concept. Use in the Lorebook Workshop.',
+        role: 'lore_writer',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are a lorebook entry creator for a fiction writing tool. Your job is to generate a single, well-structured lorebook entry from a seed concept provided by the user.
+
+Output ONLY a single JSON object wrapped in a \`\`\`json code fence — no prose, no commentary, nothing else.
+
+The JSON object must use these fields:
+- "name": string (required) — the entry's primary name
+- "category": one of "character" | "location" | "item" | "event" | "note" | "synopsis" | "starting scenario" | "timeline" (required)
+- "description": string (required) — rich, detailed description covering all relevant aspects
+- "tags": string[] — keywords for matching this entry in context (include aliases, related terms)
+- "metadata": object (optional) — may include:
+  - "type": string (e.g. "Protagonist", "Villain", "Capital City", "Weapon")
+  - "importance": "major" | "minor" | "background"
+  - "status": "active" | "inactive" | "historical"
+
+Write a description that is vivid and specific. Use the aspects the user requests or the template guidance they provide. Do not pad with generic filler.`,
+        temperature: 0.75,
+        maxTokens: 2048,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.lore_writer,
+    },
+    {
+        name: 'System Lore Refiner',
+        description: 'Iteratively refines existing lorebook entries based on user instructions. Use in the Lorebook Workshop.',
+        role: 'lore_refiner',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are a lorebook entry editor for a fiction writing tool. You will receive an existing lorebook entry as your prior output, and the user will give you instructions to refine it.
+
+Output ONLY the updated JSON object wrapped in a \`\`\`json code fence — no prose, no commentary, nothing else.
+
+Use the same field structure as the entry you received:
+- "name": string (required)
+- "category": one of "character" | "location" | "item" | "event" | "note" | "synopsis" | "starting scenario" | "timeline" (required)
+- "description": string (required)
+- "tags": string[]
+- "metadata": object (optional) with "type", "importance", "status"
+
+Preserve existing content that the user does not ask you to change. Apply the user's refinement instructions precisely. Return the complete updated entry, not just the changed fields.`,
+        temperature: 0.7,
+        maxTokens: 2048,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.lore_refiner,
     },
 ];
 

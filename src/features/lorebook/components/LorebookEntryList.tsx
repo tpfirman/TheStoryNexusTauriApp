@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useLorebookStore } from "../stores/useLorebookStore";
 import { CreateEntryDialog } from "./CreateEntryDialog";
+import { LorebookWorkshopDialog } from "./LorebookWorkshopDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Search, Filter, EyeOff, Eye } from "lucide-react";
+import { Edit, Trash2, Search, Filter, EyeOff, Eye, Wand2 } from "lucide-react";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -33,6 +34,7 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
     const [sortBy, setSortBy] = useState<SortOption>('name');
     const [editingEntry, setEditingEntry] = useState<LorebookEntry | null>(null);
     const [deletingEntry, setDeletingEntry] = useState<LorebookEntry | null>(null);
+    const [workshopEntry, setWorkshopEntry] = useState<LorebookEntry | null>(null);
     const [showDisabled, setShowDisabled] = useState(false);
 
     // Filter entries based on search term and disabled status only
@@ -154,6 +156,14 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
                                 <Button
                                     variant="ghost"
                                     size="icon"
+                                    onClick={() => setWorkshopEntry(entry)}
+                                    title="Refine with AI"
+                                >
+                                    <Wand2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={() => setEditingEntry(entry)}
                                 >
                                     <Edit className="h-4 w-4" />
@@ -202,6 +212,15 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
                     onOpenChange={() => setEditingEntry(null)}
                     storyId={editingEntry.storyId}
                     entry={editingEntry}
+                />
+            )}
+
+            {workshopEntry && (
+                <LorebookWorkshopDialog
+                    open={!!workshopEntry}
+                    onOpenChange={(open) => { if (!open) setWorkshopEntry(null); }}
+                    storyId={workshopEntry.storyId}
+                    targetEntry={workshopEntry}
                 />
             )}
 
