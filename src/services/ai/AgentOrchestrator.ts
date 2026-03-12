@@ -298,8 +298,9 @@ export class AgentOrchestrator {
         // Push prompt mode: build multi-turn chat memory
         // [system, originalUser, assistantRefusal, pushPromptUser]
         if (isRevision && step?.pushPrompt && previousResults.length > 0) {
-            // Find the prose writer's original output (the refusal)
-            const proseResult = previousResults.find(r => r.role === 'prose_writer');
+            // Find the MOST RECENT prose writer output (last iteration, not first)
+            const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
+            const proseResult = [...previousResults].reverse().find(r => proseRoles.includes(r.role));
             const previousOutput = proseResult?.output || previousResults[previousResults.length - 1]?.output || '';
 
             // Feedback from the checker (e.g. refusal_checker or lore_judge)
@@ -1059,7 +1060,7 @@ Provide the improved version:`;
 
         switch (model.provider) {
             case 'local':
-                return aiService.generateWithLocalModel(messages, temperature, maxTokens);
+                return aiService.generateWithLocalModel(messages, temperature, maxTokens, undefined, undefined, undefined, undefined, model.id);
             case 'openai':
                 return aiService.generateWithOpenAI(messages, model.id, temperature, maxTokens);
             case 'openrouter':

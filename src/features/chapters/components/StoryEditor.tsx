@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book, Microscope } from "lucide-react";
+import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book, Microscope, Loader2, Check } from "lucide-react";
+import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
@@ -52,6 +53,7 @@ export function StoryEditor() {
     const [isMaximized, setIsMaximized] = useState(false);
     const [editorialWidth, setEditorialWidth] = useState(480);
     const { currentChapterId, currentStoryId } = useStoryContext();
+    const saveStatus = useChapterStore((s) => s.saveStatus);
     const isMobile = useIsMobile();
     const navigate = useNavigate();
 
@@ -93,6 +95,18 @@ export function StoryEditor() {
             {isMaximized ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
         </Button>
     );
+
+    const saveIndicator = saveStatus === 'saving' ? (
+        <span className="flex items-center gap-1 text-xs text-muted-foreground px-2">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Saving…
+        </span>
+    ) : saveStatus === 'saved' ? (
+        <span className="flex items-center gap-1 text-xs text-green-600 px-2">
+            <Check className="h-3 w-3" />
+            Saved
+        </span>
+    ) : null;
 
     // Sidebar content for both desktop and mobile dropdown
     const sidebarButtons = (
@@ -222,6 +236,12 @@ export function StoryEditor() {
 
             {/* Desktop: Right Sidebar with Buttons */}
             <div className="hidden md:flex w-48 border-l h-full flex-col py-4 space-y-2 bg-muted/20 flex-shrink-0">
+                {/* Save status indicator */}
+                {saveIndicator && (
+                    <div className="mx-2 pb-1 border-b">
+                        {saveIndicator}
+                    </div>
+                )}
                 {sidebarButtons}
             </div>
 

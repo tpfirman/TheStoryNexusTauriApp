@@ -112,13 +112,19 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
 
   // ── Effects ──────────────────────────────────────────────────
 
-  // Fetch prompts on mount
+  const hydrateFromDefaults = useSBStore((s) => s.hydrateFromDefaults);
+
+  // Fetch prompts on mount, then hydrate defaults from localStorage
   useEffect(() => {
-    gen.fetchPrompts().catch((error: unknown) => {
+    gen.fetchPrompts().then(() => {
+      // After prompts are loaded, restore last-used selection
+      const loadedPrompts = usePromptStore.getState().prompts;
+      hydrateFromDefaults(loadedPrompts, []);
+    }).catch((error: unknown) => {
       toast.error("Failed to load prompts");
       console.error("Error loading prompts:", error);
     });
-  }, [gen.fetchPrompts]);
+  }, [gen.fetchPrompts, hydrateFromDefaults]);
 
   // Load available pipelines when agentic mode is enabled
   const agenticMode = useSBStore((s) => s.agenticMode);
@@ -126,7 +132,11 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
     if (agenticMode) {
       gen.getAvailablePipelines().then((pipelines: any) => {
         set({ availablePipelines: pipelines });
-        if (pipelines.length > 0 && !selectedPipeline) {
+        // Hydrate pipeline default now that we have the list
+        const loadedPrompts = usePromptStore.getState().prompts;
+        hydrateFromDefaults(loadedPrompts, pipelines);
+        // If still no pipeline selected after hydration, pick the first
+        if (pipelines.length > 0 && !storeApi.getState().selectedPipeline) {
           set({ selectedPipeline: pipelines[0] });
         }
       }).catch((error: unknown) => {
@@ -134,7 +144,7 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
         toast.error("Failed to load AI pipelines");
       });
     }
-  }, [agenticMode, gen.getAvailablePipelines]);
+  }, [agenticMode, gen.getAvailablePipelines, hydrateFromDefaults]);
 
   // Get sceneBeatId from node
   useEffect(() => {

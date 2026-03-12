@@ -269,7 +269,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                 onToken: (token) => store.getState().appendStreamedText(token),
                 onComplete: (pipelineResult) => {
                     console.log('[Agentic] Pipeline complete:', pipelineResult);
-                    store.setState({ streamComplete: true, showAgenticProgress: false });
+                    store.setState({ streaming: false, streamComplete: true, showAgenticProgress: false });
 
                     if (s.sceneBeatId) {
                         sceneBeatService.updateSceneBeat(s.sceneBeatId, {
@@ -280,6 +280,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                 },
                 onError: (error) => {
                     console.error('[Agentic] Error:', error);
+                    store.setState({ streaming: false, showAgenticProgress: false });
                     toast.error('Pipeline generation failed');
                 },
             };
@@ -292,6 +293,9 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
         } catch (error) {
             console.error('[Agentic] Error:', error);
             toast.error('Failed to run agentic generation');
+        } finally {
+            // Guard: always clear streaming flag in case onComplete/onError wasn't called
+            store.setState((prev) => prev.streaming ? { streaming: false, showAgenticProgress: false } : {});
         }
     }, [store, editor, chapterMatchedEntries, agenticHook]);
 
