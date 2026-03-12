@@ -17,6 +17,7 @@ import {
   useEffect,
   useRef,
 } from "react";
+import { ChevronDown as ChevronDownIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ChevronUp, ChevronDown } from "lucide-react";
@@ -84,6 +85,7 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   const isLoaded = useSBStore((s) => s.isLoaded);
   const streaming = useSBStore((s) => s.streaming);
   const streamedText = useSBStore((s) => s.streamedText);
+  const thinkingText = useSBStore((s) => s.thinkingText);
   const streamComplete = useSBStore((s) => s.streamComplete);
   const selectedPrompt = useSBStore((s) => s.selectedPrompt);
   const showPreviewDialog = useSBStore((s) => s.showPreviewDialog);
@@ -103,6 +105,9 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   // Generation hook — pass the store API for imperative access
   const storeApi = useSBStoreApi();
   const gen = useSceneBeatGeneration(storeApi);
+
+  // Local-only state: thinking block collapsed
+  const [thinkingExpanded, setThinkingExpanded] = useState(false);
 
   // Local-only state: command undo/redo history
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -401,8 +406,31 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
             </div>
           </div>
 
+          {/* Thinking box — shown when the model emits <think>...</think> blocks */}
+          {(streaming || streamComplete) && thinkingText && (
+            <div className="px-3 md:px-4 pb-1">
+              <button
+                type="button"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setThinkingExpanded((v) => !v)}
+              >
+                {thinkingExpanded ? (
+                  <ChevronDownIcon className="h-3 w-3" />
+                ) : (
+                  <ChevronRightIcon className="h-3 w-3" />
+                )}
+                Thinking…
+              </button>
+              {thinkingExpanded && (
+                <div className="mt-1 rounded-md border border-dashed p-2 md:p-3 bg-muted/10 text-xs text-muted-foreground whitespace-pre-wrap max-h-[200px] overflow-y-auto leading-relaxed">
+                  {thinkingText}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Streamed text preview */}
-          {(streaming || streamComplete) && streamedText && (
+          {(streaming || streamComplete) && (streamedText || (!thinkingText && streaming)) && (
             <div className="px-3 md:px-4 pb-3">
               <div className="rounded-md border p-3 md:p-4 bg-muted/20 text-sm md:text-base whitespace-pre-wrap max-h-[300px] md:max-h-[400px] overflow-y-auto">
                 {streamedText}

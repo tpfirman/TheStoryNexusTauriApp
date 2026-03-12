@@ -8,6 +8,7 @@
 import { createStore, type StoreApi } from 'zustand';
 import { useStore } from 'zustand';
 import { createContext, useContext } from 'react';
+import { splitThinkingContent } from '@/lib/thinking';
 import type {
     Prompt,
     AllowedModel,
@@ -86,7 +87,12 @@ export interface SceneBeatInstanceState {
 
     // Generation
     streaming: boolean;
+    /** Raw token stream including any <think>...</think> blocks. */
+    rawStreamedText: string;
+    /** Prose-only output — <think> blocks stripped out. */
     streamedText: string;
+    /** Content extracted from <think>...</think> blocks. */
+    thinkingText: string;
     streamComplete: boolean;
 
     // Mode
@@ -175,7 +181,9 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
 
         // Generation
         streaming: false,
+        rawStreamedText: '',
         streamedText: '',
+        thinkingText: '',
         streamComplete: false,
 
         // Mode
@@ -307,11 +315,15 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
         },
 
         appendStreamedText: (token) => {
-            set((state) => ({ streamedText: state.streamedText + token }));
+            set((state) => {
+                const raw = state.rawStreamedText + token;
+                const { proseText, thinkingText } = splitThinkingContent(raw);
+                return { rawStreamedText: raw, streamedText: proseText, thinkingText };
+            });
         },
 
         resetGeneration: () => {
-            set({ streamedText: '', streamComplete: false, streaming: false });
+            set({ rawStreamedText: '', streamedText: '', thinkingText: '', streamComplete: false, streaming: false });
         },
     }));
 }

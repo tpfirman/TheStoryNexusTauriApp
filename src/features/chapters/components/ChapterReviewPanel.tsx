@@ -3,7 +3,8 @@
  * to produce editorial feedback. Uses the existing agentic generation infrastructure.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, Bot, Copy, FileSearch, Loader2, RotateCcw, SquareX } from 'lucide-react';
+import { ArrowRight, Bot, ChevronDown, ChevronRight, Copy, FileSearch, Loader2, RotateCcw, SquareX } from 'lucide-react';
+import { splitThinkingContent } from '@/lib/thinking';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +43,8 @@ export function ChapterReviewPanel({
     const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
     const [reviewFocus, setReviewFocus] = useState('');
     const [streamedOutput, setStreamedOutput] = useState('');
+    const [thinkingOutput, setThinkingOutput] = useState('');
+    const [thinkingExpanded, setThinkingExpanded] = useState(false);
     const [finalOutput, setFinalOutput] = useState(() =>
         ssKey ? (sessionStorage.getItem(ssKey + '-output') || '') : ''
     );
@@ -107,9 +110,13 @@ export function ChapterReviewPanel({
         }
 
         setStreamedOutput('');
+        setThinkingOutput('');
         setFinalOutput('');
         setAdditionalResults([]);
         setHasRun(true);
+
+        // Raw token accumulator for streaming think-block parsing
+        let rawStream = '';
 
         const result = await generateWithPipeline(
             selectedPipelineId,
@@ -125,9 +132,14 @@ export function ChapterReviewPanel({
             },
             {
                 onToken: (token) => {
-                    setStreamedOutput((prev) => prev + token);
+                    rawStream += token;
+                    const { proseText, thinkingText } = splitThinkingContent(rawStream);
+                    setStreamedOutput(proseText);
+                    setThinkingOutput(thinkingText);
                 },
                 onStepComplete: (stepResult) => {
+                    // Reset raw stream for the next streaming step
+                    rawStream = '';
                     // Capture non-streaming step outputs (e.g. lore_judge, continuity_checker)
                     if (stepResult.role !== 'chapter_reviewer') {
                         setAdditionalResults((prev) => [
@@ -141,8 +153,12 @@ export function ChapterReviewPanel({
                     // r.finalOutput is the last pipeline step (e.g. continuity_checker),
                     // not necessarily the chapter_reviewer stream.
                     const reviewStep = r.steps.find(s => s.role === 'chapter_reviewer');
-                    setFinalOutput(reviewStep?.output || r.finalOutput);
+                    const rawFinal = reviewStep?.output || r.finalOutput;
+                    // Strip any think blocks from the final stored output
+                    const { proseText } = splitThinkingContent(rawFinal);
+                    setFinalOutput(proseText);
                     setStreamedOutput('');
+                    setThinkingOutput('');
                 },
                 onError: (err) => {
                     toast.error(`Review failed: ${err.message}`);
@@ -172,6 +188,7 @@ export function ChapterReviewPanel({
 
     const handleReset = () => {
         setStreamedOutput('');
+        setThinkingOutput('');
         setFinalOutput('');
         setAdditionalResults([]);
         setHasRun(false);
@@ -253,6 +270,29 @@ export function ChapterReviewPanel({
                     <span>
                         {currentAgentName ? `Running: ${currentAgentName}` : 'Starting…'}
                     </span>
+                </div>
+            )}
+
+            {/* Thinking box — shown when the model emits <think>...</think> blocks */}
+            {thinkingOutput && (
+                <div className="space-y-1">
+                    <button
+                        type="button"
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => setThinkingExpanded((v) => !v)}
+                    >
+                        {thinkingExpanded ? (
+                            <ChevronDown className="h-3 w-3" />
+                        ) : (
+                            <ChevronRight className="h-3 w-3" />
+                        )}
+                        Thinking…
+                    </button>
+                    {thinkingExpanded && (
+                        <div className="rounded-md border border-dashed bg-muted/10 p-3 text-xs text-muted-foreground whitespace-pre-wrap max-h-[200px] overflow-y-auto leading-relaxed">
+                            {thinkingOutput}
+                        </div>
+                    )}
                 </div>
             )}
 
