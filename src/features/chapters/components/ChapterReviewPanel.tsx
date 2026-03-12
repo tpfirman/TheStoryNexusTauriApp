@@ -113,7 +113,11 @@ export function ChapterReviewPanel({ onSendToEdit }: { onSendToEdit?: (reviewTex
                     }
                 },
                 onComplete: (r) => {
-                    setFinalOutput(r.finalOutput);
+                    // Use the reviewer step's own output as the primary review text.
+                    // r.finalOutput is the last pipeline step (e.g. continuity_checker),
+                    // not necessarily the chapter_reviewer stream.
+                    const reviewStep = r.steps.find(s => s.role === 'chapter_reviewer');
+                    setFinalOutput(reviewStep?.output || r.finalOutput);
                     setStreamedOutput('');
                 },
                 onError: (err) => {
@@ -299,7 +303,15 @@ export function ChapterReviewPanel({ onSendToEdit }: { onSendToEdit?: (reviewTex
                 <Button
                     variant="default"
                     className="w-full"
-                    onClick={() => onSendToEdit(finalOutput)}
+                    onClick={() => {
+                        // Combine the primary review with any additional analysis steps
+                        const parts: string[] = [];
+                        if (finalOutput) parts.push(finalOutput);
+                        additionalResults.forEach((r) => {
+                            if (r.output) parts.push(`[${r.agentName}]\n${r.output}`);
+                        });
+                        onSendToEdit(parts.join('\n\n---\n\n') || finalOutput);
+                    }}
                 >
                     <ArrowRight className="h-4 w-4 mr-2" />
                     Send Review to Edit Tab
