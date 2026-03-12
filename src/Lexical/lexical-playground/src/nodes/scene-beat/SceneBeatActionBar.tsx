@@ -117,7 +117,9 @@ export function SceneBeatActionBar({
                             }}
                         >
                             <option value="">Select Pipeline</option>
-                            {availablePipelines.map((p) => (
+                            {availablePipelines
+                                .filter((p, i, arr) => arr.findIndex((q) => q.name === p.name) === i)
+                                .map((p) => (
                                 <option key={p.name} value={p.name}>{p.name}</option>
                             ))}
                         </select>
