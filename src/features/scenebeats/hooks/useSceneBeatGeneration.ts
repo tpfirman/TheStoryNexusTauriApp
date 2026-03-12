@@ -266,7 +266,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                         agenticStepResults: [...prev.agenticStepResults, stepResult],
                     }));
                 },
-                onNewStreamingStep: () => store.setState({ streamedText: '' }),
+                onNewStreamingStep: () => store.setState({ rawStreamedText: '', streamedText: '', thinkingText: '' }),
                 onToken: (token) => store.getState().appendStreamedText(token),
                 onComplete: (pipelineResult) => {
                     console.log('[Agentic] Pipeline complete:', pipelineResult);
