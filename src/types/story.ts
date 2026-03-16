@@ -11,6 +11,8 @@ export interface Story extends BaseEntity {
   author: string;
   language: string;
   synopsis?: string;
+  saveFilePath?: string; // Tauri: absolute path to linked .json file; Browser: filename only
+  saveFileHandle?: FileSystemFileHandle; // Browser File System Access API handle (non-Tauri)
 }
 
 // Chapter structure

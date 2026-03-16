@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { db } from '@/services/database';
 import type { Story } from '@/types/story';
+import { storyExportService } from '@/services/storyExportService';
 
 interface StoryState {
     stories: Story[];
@@ -16,6 +17,11 @@ interface StoryState {
     deleteStory: (id: string) => Promise<void>;
     setCurrentStory: (story: Story | null) => void;
     clearError: () => void;
+    // File-based save/load actions
+    linkStoryToFile: (storyId: string) => Promise<string | null>;
+    syncStoryToFile: (storyId: string) => Promise<void>;
+    unlinkStoryFile: (storyId: string) => Promise<void>;
+    importFromFile: () => Promise<string | null>;
 }
 
 export const useStoryStore = create<StoryState>((set, _get) => ({
@@ -132,5 +138,48 @@ export const useStoryStore = create<StoryState>((set, _get) => ({
     // Clear error
     clearError: () => {
         set({ error: null });
-    }
+    },
+
+    // Open native save dialog, link story to chosen file, write initial snapshot
+    linkStoryToFile: async (storyId: string) => {
+        const filePath = await storyExportService.linkStoryToFile(storyId);
+        if (filePath) {
+            // Refresh the story record so saveFilePath is reflected in Zustand
+            const updated = await db.stories.get(storyId);
+            if (updated) {
+                set(state => ({
+                    stories: state.stories.map(s => s.id === storyId ? updated : s),
+                    currentStory: state.currentStory?.id === storyId ? updated : state.currentStory,
+                }));
+            }
+        }
+        return filePath;
+    },
+
+    // Write current story snapshot to the linked file (no-op if no file linked)
+    syncStoryToFile: async (storyId: string) => {
+        await storyExportService.syncStoryToFile(storyId, { explicit: true });
+    },
+
+    // Remove file link from story
+    unlinkStoryFile: async (storyId: string) => {
+        await storyExportService.unlinkStoryFile(storyId);
+        const updated = await db.stories.get(storyId);
+        if (updated) {
+            set(state => ({
+                stories: state.stories.map(s => s.id === storyId ? updated : s),
+                currentStory: state.currentStory?.id === storyId ? updated : state.currentStory,
+            }));
+        }
+    },
+
+    // Open native file-open dialog and import the chosen story JSON
+    importFromFile: async () => {
+        const newStoryId = await storyExportService.importFromFile();
+        if (newStoryId) {
+            const stories = await db.stories.toArray();
+            set({ stories });
+        }
+        return newStoryId;
+    },
 })); 

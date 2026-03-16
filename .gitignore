@@ -36,3 +36,4 @@ dist-ssr
 docs/
 src-tauri/gen/
 
+bugs.md

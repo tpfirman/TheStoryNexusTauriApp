@@ -1,6 +1,19 @@
 import { create } from 'zustand';
 import { db } from '../../../services/database';
 import type { Chapter, ChapterOutline, ChapterNotes } from '../../../types/story';
+import { storyExportService } from '../../../services/storyExportService';
+
+// Per-story debounce timers for auto-sync to linked file (5 second delay)
+const fileSyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function scheduleSyncToFile(storyId: string) {
+    const existing = fileSyncTimers.get(storyId);
+    if (existing) clearTimeout(existing);
+    fileSyncTimers.set(storyId, setTimeout(() => {
+        fileSyncTimers.delete(storyId);
+        storyExportService.syncStoryToFile(storyId);
+    }, 5000));
+}
 
 interface ChapterState {
     chapters: Chapter[];
@@ -154,6 +167,9 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
                 currentChapter: state.currentChapter?.id === id ? updatedChapter : state.currentChapter,
                 loading: false
             }));
+
+            // Auto-sync to linked file (debounced, no-op if no file linked)
+            scheduleSyncToFile(updatedChapter.storyId);
         } catch (error) {
             set({
                 error: error instanceof Error ? error.message : 'Failed to update chapter',

@@ -11,6 +11,14 @@
 
 ---
 
+## Git / Push Policy
+
+- **Only** commit and push to this fork: `https://github.com/tpfirman/TheStoryNexusTauriApp`
+- **Never** push to upstream: `https://github.com/vijayk1989/TheStoryNexusTauriApp`
+- All feature work happens on dedicated branches (e.g. `feat/*`, `fix/*`). No direct commits to `main`.
+
+---
+
 ## Key Commands
 
 ```bash
@@ -21,6 +29,7 @@ npm run build        # Build web assets
 npm run tauri build  # Build desktop binary
 npm run tauri build -- --debug  # Debug desktop binary
 ```
+
 
 ---
 
