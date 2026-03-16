@@ -99,6 +99,29 @@ export class StoryDatabase extends Dexie {
             drafts: 'id, storyId, chapterId, createdAt',
         });
 
+        // Version 17: Add storyFormat and universeType to stories (no new indexes needed)
+        this.version(17).stores({
+            stories: 'id, title, createdAt, language, isDemo, saveFilePath',
+            chapters: 'id, storyId, order, createdAt, isDemo',
+            aiChats: 'id, storyId, createdAt, isDemo',
+            prompts: 'id, name, promptType, storyId, createdAt, isSystem',
+            templates: 'id, name, templateType, storyId, createdAt, isSystem',
+            aiSettings: 'id, lastModelsFetch',
+            lorebookEntries: 'id, storyId, name, category, *tags, isDemo',
+            sceneBeats: 'id, storyId, chapterId',
+            notes: 'id, storyId, title, type, createdAt, updatedAt',
+            agentPresets: 'id, name, role, storyId, createdAt, isSystem',
+            pipelinePresets: 'id, name, storyId, createdAt, isSystem',
+            pipelineExecutions: 'id, storyId, chapterId, pipelinePresetId, createdAt, status',
+            drafts: 'id, storyId, chapterId, createdAt',
+        }).upgrade(async tx => {
+            await tx.table('stories').toCollection().modify((story: Record<string, unknown>) => {
+                if (!story.storyFormat) {
+                    story.storyFormat = 'novel';
+                }
+            });
+        });
+
         this.on('populate', async () => {
             console.log('Populating database with initial data...');
 

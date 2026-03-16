@@ -17,6 +17,7 @@ import { useAIStore } from '@/features/ai/stores/useAIStore';
 import { usePromptStore } from '@/features/prompts/store/promptStore';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
+import { useStoryStore } from '@/features/stories/stores/useStoryStore';
 import { createPromptParser } from '@/features/prompts/services/promptParser';
 import { sceneBeatService } from '@/features/scenebeats/services/sceneBeatService';
 import { useAgenticGeneration, type AgenticGenerationContext, type AgenticGenerationCallbacks } from '@/features/agents/hooks/useAgenticGeneration';
@@ -245,16 +246,40 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                     : []),
             ];
 
-            const { currentChapter } = useChapterStore.getState();
+            const { currentChapter, getChapterSummaries, getAllChapterSummaries } = useChapterStore.getState();
             const { entries } = useLorebookStore.getState();
+            const { currentStory } = useStoryStore.getState();
+
+            // Build cross-chapter summaries based on story format
+            const storyFormat = currentStory?.storyFormat ?? 'novel';
+            const universeType = currentStory?.universeType;
+            let chapterSummaries: string | undefined;
+
+            if (currentChapter) {
+                if (storyFormat === 'novel') {
+                    // Novels: pass previous chapter summaries as "story so far"
+                    const summaries = await getChapterSummaries(currentChapter.storyId, currentChapter.order);
+                    chapterSummaries = summaries || undefined;
+                } else if (storyFormat === 'short_story_collection' && universeType === 'shared_universe') {
+                    // Shared universe: all other stories' summaries provide world context
+                    const summaries = await getAllChapterSummaries(currentChapter.storyId);
+                    chapterSummaries = summaries || undefined;
+                }
+                // standalone: chapterSummaries remains undefined — no cross-story context
+            }
+
             const context: AgenticGenerationContext = {
                 scenebeat: s.command.trim(),
                 previousWords: previousText,
                 matchedEntries: combinedEntries,
                 allEntries: entries,
+                chapterSummaries,
                 povType: s.povType,
                 povCharacter: s.povType !== 'Third Person Omniscient' ? s.povCharacter : undefined,
                 currentChapter,
+                storyLanguage: currentStory?.language,
+                storyFormat,
+                universeType,
             };
 
             const callbacks: AgenticGenerationCallbacks = {

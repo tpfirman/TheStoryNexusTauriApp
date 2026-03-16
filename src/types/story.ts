@@ -5,6 +5,9 @@ interface BaseEntity {
   isDemo?: boolean; // Flag to identify demo content
 }
 
+export type StoryFormat = 'novel' | 'short_story_collection';
+export type UniverseType = 'shared_universe' | 'standalone';
+
 // Core story type
 export interface Story extends BaseEntity {
   title: string;
@@ -13,6 +16,8 @@ export interface Story extends BaseEntity {
   synopsis?: string;
   saveFilePath?: string; // Tauri: absolute path to linked .json file; Browser: filename only
   saveFileHandle?: FileSystemFileHandle; // Browser File System Access API handle (non-Tauri)
+  storyFormat?: StoryFormat; // defaults to 'novel' for existing stories
+  universeType?: UniverseType; // only relevant when storyFormat === 'short_story_collection'
 }
 
 // Chapter structure

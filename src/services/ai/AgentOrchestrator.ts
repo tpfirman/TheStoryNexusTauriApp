@@ -10,7 +10,9 @@ import {
     PipelineExecution,
     Chapter,
     AgentContextConfig,
-    DEFAULT_CONTEXT_CONFIG
+    DEFAULT_CONTEXT_CONFIG,
+    StoryFormat,
+    UniverseType
 } from '@/types/story';
 import { db } from '../database';
 
@@ -23,7 +25,7 @@ export interface PipelineInput {
     lorebookEntries?: LorebookEntry[];
     // All lorebook entries (for lore judge)
     allLorebookEntries?: LorebookEntry[];
-    // Chapter summaries
+    // Cross-chapter summaries (populated from useSceneBeatGeneration based on storyFormat)
     chapterSummaries?: string;
     // POV settings
     povType?: string;
@@ -32,6 +34,9 @@ export interface PipelineInput {
     storyLanguage?: string;
     // Current chapter data
     currentChapter?: Chapter;
+    // Story format — controls how chapter summaries and lorebook are framed for the AI
+    storyFormat?: StoryFormat;
+    universeType?: UniverseType;
     // Custom data for extensibility
     customData?: Record<string, unknown>;
 }
@@ -368,15 +373,26 @@ export class AgentOrchestrator {
     }
 
     /**
-     * Get lorebook entries based on agent's context config
+     * Get lorebook entries based on agent's context config.
+     * For standalone short story collections, lorebook is suppressed unless the agent
+     * uses 'custom' mode — each story is independent and shared lore should not leak in.
      */
     private getLorebookForAgent(agent: AgentPreset, input: PipelineInput): LorebookEntry[] {
         const config = this.getEffectiveContextConfig(agent);
-        
+
+        // Standalone short story collections: no shared lorebook context
+        if (
+            input.storyFormat === 'short_story_collection' &&
+            input.universeType === 'standalone' &&
+            config.lorebookMode !== 'custom'
+        ) {
+            return [];
+        }
+
         switch (config.lorebookMode) {
             case 'none':
                 return [];
-            
+
             case 'all': {
                 let entries = input.allLorebookEntries || input.lorebookEntries || [];
                 // Apply limit if specified
@@ -385,7 +401,7 @@ export class AgentOrchestrator {
                 }
                 return entries;
             }
-            
+
             case 'custom': {
                 if (!config.customLorebookEntryIds || config.customLorebookEntryIds.length === 0) {
                     return [];
@@ -393,7 +409,7 @@ export class AgentOrchestrator {
                 const allEntries = input.allLorebookEntries || input.lorebookEntries || [];
                 return allEntries.filter(e => config.customLorebookEntryIds!.includes(e.id));
             }
-            
+
             case 'matched':
             default:
                 return input.lorebookEntries || [];
@@ -517,8 +533,18 @@ export class AgentOrchestrator {
             message += '\n\n';
         }
 
+        if (config.includeChapterSummary && input.chapterSummaries) {
+            const format = input.storyFormat ?? 'novel';
+            if (format === 'novel') {
+                message += `STORY SO FAR (previous chapters):\n${input.chapterSummaries}\n\n`;
+            } else if (input.universeType === 'shared_universe') {
+                message += `OTHER STORIES IN THIS COLLECTION (shared universe — same characters and world apply, but treat this as a standalone story):\n${input.chapterSummaries}\n\n`;
+            }
+            // standalone: no cross-story context
+        }
+
         if (config.includeChapterSummary && input.currentChapter?.summary) {
-            message += `CHAPTER SUMMARY:\n${input.currentChapter.summary}\n\n`;
+            message += `CURRENT CHAPTER OUTLINE/NOTES:\n${input.currentChapter.summary}\n\n`;
         }
 
         if (contextText) {
@@ -793,9 +819,18 @@ Provide the improved version:`;
             message += `ESTABLISHED LORE & CHARACTERS:\n${lorebookContext}\n\n`;
         }
 
-        // Add chapter summary if configured
+        // Add cross-chapter context if configured
+        if (config.includeChapterSummary && input.chapterSummaries) {
+            const format = input.storyFormat ?? 'novel';
+            if (format === 'novel') {
+                message += `STORY SO FAR (previous chapters):\n${input.chapterSummaries}\n\n`;
+            } else if (input.universeType === 'shared_universe') {
+                message += `OTHER STORIES IN THIS COLLECTION (shared universe — same characters and world apply, but treat this as a standalone story):\n${input.chapterSummaries}\n\n`;
+            }
+        }
+
         if (config.includeChapterSummary && input.currentChapter?.summary) {
-            message += `CURRENT CHAPTER SUMMARY:\n${input.currentChapter.summary}\n\n`;
+            message += `CURRENT CHAPTER OUTLINE/NOTES:\n${input.currentChapter.summary}\n\n`;
         }
 
         // Add story context if available

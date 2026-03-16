@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { agentOrchestrator, PipelineInput, PipelineResult, ExecutablePipelineStep } from '@/services/ai/AgentOrchestrator';
 import { useAgentsStore } from '../stores/useAgentsStore';
-import { AgentResult, LorebookEntry, Chapter, PipelinePreset } from '@/types/story';
+import { AgentResult, LorebookEntry, Chapter, PipelinePreset, StoryFormat, UniverseType } from '@/types/story';
 import { db } from '@/services/database';
 
 export interface AgenticGenerationCallbacks {
@@ -18,10 +18,13 @@ export interface AgenticGenerationContext {
     previousWords: string;
     matchedEntries: LorebookEntry[];
     allEntries?: LorebookEntry[];
+    chapterSummaries?: string;
     povType?: string;
     povCharacter?: string;
     currentChapter?: Chapter;
     storyLanguage?: string;
+    storyFormat?: StoryFormat;
+    universeType?: UniverseType;
 }
 
 export function useAgenticGeneration() {
@@ -54,10 +57,13 @@ export function useAgenticGeneration() {
                 previousWords: context.previousWords,
                 lorebookEntries: context.matchedEntries,
                 allLorebookEntries: context.allEntries,
+                chapterSummaries: context.chapterSummaries,
                 povType: context.povType,
                 povCharacter: context.povCharacter,
                 currentChapter: context.currentChapter,
                 storyLanguage: context.storyLanguage,
+                storyFormat: context.storyFormat,
+                universeType: context.universeType,
             };
 
             // Execute the pipeline
