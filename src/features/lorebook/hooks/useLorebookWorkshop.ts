@@ -21,7 +21,7 @@ interface UseLorebookWorkshopReturn extends WorkshopState {
     startConception: (seedText: string, category: LorebookEntry['category'], agentPreset: AgentPreset) => Promise<void>;
     startRefinement: (existingEntry: LorebookEntry, agentPreset: AgentPreset) => Promise<void>;
     sendFollowUp: (userText: string) => Promise<void>;
-    applyToEntry: (storyId: string, targetEntryId?: string) => Promise<void>;
+    applyToEntry: (lorebookId: string, targetEntryId?: string) => Promise<void>;
     abort: () => void;
     reset: () => void;
 }
@@ -167,7 +167,7 @@ export function useLorebookWorkshop(): UseLorebookWorkshopReturn {
         await generate(currentPresetRef.current, newHistory);
     }, [state.conversationHistory, generate]);
 
-    const applyToEntry = useCallback(async (storyId: string, targetEntryId?: string) => {
+    const applyToEntry = useCallback(async (lorebookId: string, targetEntryId?: string) => {
         if (!state.parsedPreview) return;
         const data = state.parsedPreview;
 
@@ -181,7 +181,7 @@ export function useLorebookWorkshop(): UseLorebookWorkshopReturn {
             });
         } else {
             await createEntry({
-                storyId,
+                lorebookId,
                 name: data.name ?? 'Untitled Entry',
                 description: data.description ?? '',
                 category: data.category ?? 'note',

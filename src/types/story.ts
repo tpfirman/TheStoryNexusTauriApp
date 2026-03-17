@@ -18,6 +18,13 @@ export interface Story extends BaseEntity {
   saveFileHandle?: FileSystemFileHandle; // Browser File System Access API handle (non-Tauri)
   storyFormat?: StoryFormat; // defaults to 'novel' for existing stories
   universeType?: UniverseType; // only relevant when storyFormat === 'short_story_collection'
+  lorebookIds?: string[]; // IDs of associated LoreBook entities (many-to-many)
+}
+
+// LoreBook — a named collection of lorebook entries that can be shared across stories
+export interface LoreBook extends BaseEntity {
+  name: string;
+  description?: string;
 }
 
 // Chapter structure
@@ -184,7 +191,7 @@ export interface Note extends BaseEntity {
 
 // Lorebook types
 export interface LorebookEntry extends BaseEntity {
-  storyId: string;
+  lorebookId: string;
   name: string;
   description: string;
   category:
@@ -216,6 +223,7 @@ export interface LorebookEntry extends BaseEntity {
 // Prompt Parser types
 export interface PromptParserConfig {
   storyId: string;
+  lorebookIds?: string[]; // IDs of lore books associated with the story
   chapterId?: string;
   promptId: string;
   scenebeat?: string;
@@ -238,6 +246,7 @@ export interface PromptParserConfig {
 
 export interface PromptContext {
   storyId: string;
+  lorebookIds?: string[]; // IDs of lore books associated with the story
   chapterId?: string;
   scenebeat?: string;
   cursorPosition?: number;

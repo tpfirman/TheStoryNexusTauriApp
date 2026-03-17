@@ -20,6 +20,8 @@ import AISettingsPage from "./features/ai/pages/AISettingsPage";
 import AgentsPage from "./features/agents/pages/AgentsPage";
 import { MainLayout } from "./components/MainLayout";
 import LorebookPage from "./features/lorebook/pages/LorebookPage";
+import LoreBooksPage from "./features/lorebook/pages/LoreBooksPage";
+import StandaloneLorebookPage from "./features/lorebook/pages/StandaloneLorebookPage";
 import BrainstormPage from "./features/brainstorm/pages/BrainstormPage";
 import GuidePage from "./features/guide/pages/GuidePage";
 import NotesPage from "./features/notes/pages/NotesPage";
@@ -48,6 +50,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route element={<MainLayout />}>
               {/* Stories section */}
               <Route path="/stories" element={<Home />} />
+              {/* Lore Books global management */}
+              <Route path="/lorebooks" element={<LoreBooksPage />} />
+              <Route path="/lorebooks/:lorebookId" element={<StandaloneLorebookPage />} />
               {/* AI Settings */}
               <Route path="/ai-settings" element={<AISettingsPage />} />
               {/* Guide */}

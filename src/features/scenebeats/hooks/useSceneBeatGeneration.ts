@@ -88,10 +88,13 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
         // For now, we read them from the loaded SceneBeat
         const storyId = currentChapter?.storyId || '';
         const chapterId = currentChapter?.id || '';
+        const { currentStory } = useStoryStore.getState();
+        const lorebookIds = currentStory?.lorebookIds ?? [];
 
         return {
             promptId: prompt.id,
             storyId,
+            lorebookIds,
             chapterId,
             scenebeat: s.command.trim(),
             previousWords: previousText,

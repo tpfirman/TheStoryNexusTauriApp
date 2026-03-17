@@ -20,15 +20,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import type { LorebookEntry } from "@/types/story";
+import type { LoreBook, LorebookEntry } from "@/types/story";
 
 interface LorebookEntryListProps {
     entries: LorebookEntry[];
+    loreBooks?: LoreBook[];
+    defaultLorebookId?: string;
 }
 
 type SortOption = 'name' | 'category' | 'importance' | 'created';
 
-export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProps) {
+export function LorebookEntryList({ entries: allEntries, loreBooks = [], defaultLorebookId = '' }: LorebookEntryListProps) {
+    const showLorebookBadge = loreBooks.length > 1;
     const { deleteEntry, updateEntry } = useLorebookStore();
     const [searchTerm, setSearchTerm] = useState("");
     const [sortBy, setSortBy] = useState<SortOption>('name');
@@ -186,6 +189,11 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
                                 {entry.isDisabled && (
                                     <Badge variant="outline" className="bg-destructive/10 text-destructive">Disabled</Badge>
                                 )}
+                                {showLorebookBadge && (
+                                    <Badge variant="outline" className="text-xs">
+                                        {loreBooks.find(b => b.id === entry.lorebookId)?.name ?? 'Unknown Book'}
+                                    </Badge>
+                                )}
                             </div>
                             <div className="flex flex-wrap gap-1 mb-2">
                                 {entry.tags && entry.tags.map((tag, index) => (
@@ -210,7 +218,8 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
                 <CreateEntryDialog
                     open={!!editingEntry}
                     onOpenChange={() => setEditingEntry(null)}
-                    storyId={editingEntry.storyId}
+                    lorebookId={editingEntry.lorebookId}
+                    availableLoreBooks={loreBooks}
                     entry={editingEntry}
                 />
             )}
@@ -219,7 +228,7 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
                 <LorebookWorkshopDialog
                     open={!!workshopEntry}
                     onOpenChange={(open) => { if (!open) setWorkshopEntry(null); }}
-                    storyId={workshopEntry.storyId}
+                    lorebookId={workshopEntry.lorebookId}
                     targetEntry={workshopEntry}
                 />
             )}

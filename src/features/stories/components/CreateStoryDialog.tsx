@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PlusCircle } from "lucide-react";
 import { StoryFormat, UniverseType } from "@/types/story";
 
@@ -25,6 +26,7 @@ export function CreateStoryDialog() {
     const [synopsis, setSynopsis] = useState("");
     const [storyFormat, setStoryFormat] = useState<StoryFormat>("novel");
     const [universeType, setUniverseType] = useState<UniverseType>("shared_universe");
+    const [createDedicatedLoreBook, setCreateDedicatedLoreBook] = useState(true);
     const createStory = useStoryStore((state) => state.createStory);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -37,7 +39,7 @@ export function CreateStoryDialog() {
                 synopsis,
                 storyFormat,
                 universeType: storyFormat === "short_story_collection" ? universeType : undefined,
-            });
+            }, createDedicatedLoreBook);
             setOpen(false);
             // Reset form
             setTitle("");
@@ -46,6 +48,7 @@ export function CreateStoryDialog() {
             setSynopsis("");
             setStoryFormat("novel");
             setUniverseType("shared_universe");
+            setCreateDedicatedLoreBook(true);
         } catch (error) {
             console.error("Failed to create story:", error);
         }
@@ -139,6 +142,22 @@ export function CreateStoryDialog() {
                                 </Select>
                             </div>
                         )}
+                        <div className="flex items-start gap-3">
+                            <Checkbox
+                                id="createLoreBook"
+                                checked={createDedicatedLoreBook}
+                                onCheckedChange={(checked) => setCreateDedicatedLoreBook(!!checked)}
+                                className="mt-0.5"
+                            />
+                            <div className="grid gap-1">
+                                <Label htmlFor="createLoreBook" className="cursor-pointer">
+                                    Create a dedicated lore book
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    A lore book stores characters, locations, and world-building entries. You can share lore books across multiple stories.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button type="submit">Create Story</Button>

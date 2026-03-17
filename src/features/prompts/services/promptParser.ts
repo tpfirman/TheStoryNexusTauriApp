@@ -381,9 +381,10 @@ export class PromptParser {
         const { getFilteredEntries } = useLorebookStore.getState();
 
         // Get filtered entries (already excludes disabled entries)
+        const lorebookIds = context.lorebookIds ?? [];
         const entries = getFilteredEntries()
             .filter(entry =>
-                entry.storyId === context.storyId &&
+                lorebookIds.includes(entry.lorebookId) &&
                 entry.category === 'character' &&
                 entry.name.toLowerCase() === name.toLowerCase()
             );
@@ -459,10 +460,9 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
         const { getFilteredEntries } = useLorebookStore.getState();
 
         // Get filtered entries (already excludes disabled entries)
-        let entries = getFilteredEntries();
-
-        // Filter by storyId
-        entries = entries.filter(entry => entry.storyId === context.storyId);
+        const lorebookIds = context.lorebookIds ?? [];
+        let entries = getFilteredEntries()
+            .filter(entry => lorebookIds.includes(entry.lorebookId));
 
         // Filter by category if provided
         if (category) {
@@ -498,7 +498,7 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
 
         // Load entries if they're not already loaded
         if (lorebookStore.entries.length === 0) {
-            await lorebookStore.loadEntries(context.storyId);
+            await lorebookStore.loadEntries(context.lorebookIds ?? []);
         }
 
         // Check if full context is enabled
@@ -689,8 +689,8 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
             if (useCustomContext && customContextItems && customContextItems.length > 0) {
                 // Load entries if they're not already loaded
                 const lorebookStore = useLorebookStore.getState();
-                if (lorebookStore.entries.length === 0 && context.storyId) {
-                    await lorebookStore.loadEntries(context.storyId);
+                if (lorebookStore.entries.length === 0 && context.lorebookIds?.length) {
+                    await lorebookStore.loadEntries(context.lorebookIds);
                 }
 
                 // Get the custom entries from the store

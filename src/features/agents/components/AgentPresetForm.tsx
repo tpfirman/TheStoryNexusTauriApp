@@ -28,6 +28,7 @@ import { ArrowLeft, Check, X, ChevronDown, ChevronUp, Settings2, Star } from 'lu
 import { useAgentsStore, DEFAULT_AGENT_PROMPTS } from '../stores/useAgentsStore';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
+import { useStoryStore } from '@/features/stories/stores/useStoryStore';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import type { 
     AgentPreset, 
@@ -84,6 +85,7 @@ interface ModelsByProvider {
 
 export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProps) {
     const { currentStoryId } = useStoryContext();
+    const { currentStory } = useStoryStore();
     const { createAgentPreset, updateAgentPreset } = useAgentsStore();
     const { initialize, getAvailableModels, isInitialized, favoriteModelIds, toggleFavoriteModel } = useAIStore();
     const { entries: lorebookEntries, loadEntries } = useLorebookStore();
@@ -127,10 +129,10 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
 
     useEffect(() => {
         loadModels();
-        if (currentStoryId) {
-            loadEntries(currentStoryId);
+        if (currentStory?.lorebookIds?.length) {
+            loadEntries(currentStory.lorebookIds);
         }
-    }, [currentStoryId]);
+    }, [currentStory]);
 
     const loadModels = async () => {
         try {

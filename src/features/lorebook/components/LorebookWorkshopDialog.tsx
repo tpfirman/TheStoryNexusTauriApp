@@ -38,7 +38,8 @@ const CATEGORIES: LorebookCategory[] = [
 interface LorebookWorkshopDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    storyId: string;
+    /** The lore book to save new entries into. */
+    lorebookId: string;
     /** When set, opens in refinement mode for this entry */
     targetEntry?: LorebookEntry;
     /** Pre-selects a category in conception mode */
@@ -48,7 +49,7 @@ interface LorebookWorkshopDialogProps {
 export function LorebookWorkshopDialog({
     open,
     onOpenChange,
-    storyId,
+    lorebookId,
     targetEntry,
     initialCategory,
 }: LorebookWorkshopDialogProps) {
@@ -131,7 +132,7 @@ export function LorebookWorkshopDialog({
     const handleSave = async (asNew: boolean) => {
         if (!workshop.parsedPreview) return;
         try {
-            await workshop.applyToEntry(storyId, asNew ? undefined : targetEntry?.id);
+            await workshop.applyToEntry(lorebookId, asNew ? undefined : targetEntry?.id);
             toast.success(asNew ? 'Entry saved to lorebook.' : 'Entry updated in lorebook.');
             onOpenChange(false);
         } catch {

@@ -1,5 +1,5 @@
 import { db } from './database';
-import type { Story, Chapter, LorebookEntry, SceneBeat, AIChat } from '@/types/story';
+import type { Story, Chapter, LorebookEntry, LoreBook, SceneBeat, AIChat } from '@/types/story';
 import { toast } from 'react-toastify';
 import { isTauri } from '@tauri-apps/api/core';
 
@@ -9,6 +9,7 @@ interface StoryExport {
     exportDate: string;
     story: Story;
     chapters: Chapter[];
+    loreBooks: LoreBook[];
     lorebookEntries: LorebookEntry[];
     sceneBeats: SceneBeat[];
     aiChats: AIChat[];
@@ -48,17 +49,24 @@ export const storyExportService = {
         const story = await db.stories.get(storyId);
         if (!story) throw new Error('Story not found');
 
+        const lorebookIds = story.lorebookIds ?? [];
+        const loreBooks = lorebookIds.length > 0
+            ? await db.loreBooks.where('id').anyOf(lorebookIds).toArray()
+            : [];
+        const lorebookEntries = lorebookIds.length > 0
+            ? await db.lorebookEntries.where('lorebookId').anyOf(lorebookIds).toArray()
+            : [];
         const chapters = await db.chapters.where('storyId').equals(storyId).toArray();
-        const lorebookEntries = await db.lorebookEntries.where('storyId').equals(storyId).toArray();
         const sceneBeats = await db.sceneBeats.where('storyId').equals(storyId).toArray();
         const aiChats = await db.aiChats.where('storyId').equals(storyId).toArray();
 
         const exportData: StoryExport = {
-            version: '1.0',
+            version: '2.0',
             type: 'story',
             exportDate: new Date().toISOString(),
             story,
             chapters,
+            loreBooks,
             lorebookEntries,
             sceneBeats,
             aiChats,
@@ -262,90 +270,97 @@ export const storyExportService = {
     },
 
     /**
-     * Import a complete story with all related data
-     * Returns the ID of the newly imported story
+     * Import a complete story with all related data.
+     * Supports both v1.0 (LorebookEntry.storyId) and v2.0 (LorebookEntry.lorebookId + LoreBook) formats.
+     * Returns the ID of the newly imported story.
      */
     importStory: async (jsonData: string): Promise<string> => {
         try {
-            const data = JSON.parse(jsonData) as StoryExport;
+            const data = JSON.parse(jsonData) as StoryExport & { lorebookEntries?: any[] };
 
-            // Validate the data format
             if (!data.type || data.type !== 'story' || !data.story) {
                 throw new Error('Invalid story data format');
             }
 
-            // Generate a new ID for the story
             const newStoryId = crypto.randomUUID();
-
-            // Create ID mapping to update references
             const idMap = new Map<string, string>();
             idMap.set(data.story.id, newStoryId);
 
-            // Create a new story with the new ID
+            // --- Normalise lorebook data regardless of export version ---
+            // v1.0: entries have .storyId, no loreBooks array
+            // v2.0: entries have .lorebookId, loreBooks array present
+            const isV1 = !data.version || data.version === '1.0';
+
+            // lorebookId → new lorebookId mapping (for v2.0 books; for v1.0 we create one book)
+            const loreBookIdMap = new Map<string, string>();
+            const normalizedBooks: LoreBook[] = [];
+
+            if (isV1) {
+                // Create a single migration lorebook for all entries
+                const migrationLorebookId = crypto.randomUUID();
+                loreBookIdMap.set('__v1_migration__', migrationLorebookId);
+                normalizedBooks.push({
+                    id: migrationLorebookId,
+                    name: data.story.title,
+                    createdAt: new Date(),
+                    isDemo: data.story.isDemo,
+                });
+            } else {
+                for (const book of (data.loreBooks ?? [])) {
+                    const newBookId = crypto.randomUUID();
+                    loreBookIdMap.set(book.id, newBookId);
+                    normalizedBooks.push({ ...book, id: newBookId, createdAt: new Date() });
+                }
+            }
+
+            const newLorebookIds = normalizedBooks.map(b => b.id);
+
             const newStory: Story = {
                 ...data.story,
                 id: newStoryId,
                 createdAt: new Date(),
-                title: `${data.story.title} (Imported)`
+                title: `${data.story.title} (Imported)`,
+                lorebookIds: newLorebookIds,
             };
 
-            // Start a transaction to ensure all-or-nothing import
             await db.transaction('rw',
-                [db.stories, db.chapters, db.lorebookEntries, db.sceneBeats, db.aiChats],
+                [db.stories, db.chapters, db.loreBooks, db.lorebookEntries, db.sceneBeats, db.aiChats],
                 async () => {
-                    // Add the story
                     await db.stories.add(newStory);
 
-                    // Add chapters with updated IDs and references
+                    for (const book of normalizedBooks) {
+                        await db.loreBooks.add(book);
+                    }
+
                     for (const chapter of data.chapters) {
                         const newChapterId = crypto.randomUUID();
                         idMap.set(chapter.id, newChapterId);
-
-                        await db.chapters.add({
-                            ...chapter,
-                            id: newChapterId,
-                            storyId: newStoryId,
-                            createdAt: new Date()
-                        });
+                        await db.chapters.add({ ...chapter, id: newChapterId, storyId: newStoryId, createdAt: new Date() });
                     }
 
-                    // Add lorebook entries with updated IDs and references
-                    for (const entry of data.lorebookEntries) {
+                    for (const entry of (data.lorebookEntries ?? [])) {
                         const newEntryId = crypto.randomUUID();
-                        idMap.set(entry.id, newEntryId);
-
-                        await db.lorebookEntries.add({
-                            ...entry,
-                            id: newEntryId,
-                            storyId: newStoryId,
-                            createdAt: new Date()
-                        });
+                        const resolvedLorebookId = isV1
+                            ? loreBookIdMap.get('__v1_migration__')!
+                            : (loreBookIdMap.get(entry.lorebookId) ?? loreBookIdMap.values().next().value ?? '');
+                        const cleanEntry = { ...entry };
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        delete (cleanEntry as any).storyId;
+                        await db.lorebookEntries.add({ ...cleanEntry, id: newEntryId, lorebookId: resolvedLorebookId, createdAt: new Date() });
                     }
 
-                    // Add scene beats with updated IDs and references
                     for (const sceneBeat of data.sceneBeats) {
-                        const newSceneBeatId = crypto.randomUUID();
-
                         await db.sceneBeats.add({
                             ...sceneBeat,
-                            id: newSceneBeatId,
+                            id: crypto.randomUUID(),
                             storyId: newStoryId,
                             chapterId: idMap.get(sceneBeat.chapterId) || sceneBeat.chapterId,
                             createdAt: new Date()
                         });
                     }
 
-                    // Add AI chats with updated IDs and references
                     for (const chat of data.aiChats) {
-                        const newChatId = crypto.randomUUID();
-
-                        await db.aiChats.add({
-                            ...chat,
-                            id: newChatId,
-                            storyId: newStoryId,
-                            createdAt: new Date(),
-                            updatedAt: new Date()
-                        });
+                        await db.aiChats.add({ ...chat, id: crypto.randomUUID(), storyId: newStoryId, createdAt: new Date(), updatedAt: new Date() });
                     }
                 }
             );

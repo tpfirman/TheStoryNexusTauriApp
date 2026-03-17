@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router";
-import { Home, BookOpen, Bot, HelpCircle } from "lucide-react";
+import { Home, BookOpen, Bot, HelpCircle, Library } from "lucide-react";
 import { Button } from "./ui/button";
 import { ThemeToggle } from "./ThemeToggle";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
     { to: "/", icon: Home, label: "Home" },
     { to: "/stories", icon: BookOpen, label: "Stories" },
+    { to: "/lorebooks", icon: Library, label: "Lore Books" },
     { to: "/ai-settings", icon: Bot, label: "AI" },
     { to: "/guide", icon: HelpCircle, label: "Guide" },
 ];

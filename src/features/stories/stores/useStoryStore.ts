@@ -12,7 +12,8 @@ interface StoryState {
     // Actions
     fetchStories: () => Promise<void>;
     getStory: (id: string) => Promise<void>;
-    createStory: (story: Omit<Story, 'id' | 'createdAt'>) => Promise<string>;
+    /** Pass `createDedicatedLoreBook: true` to auto-create and link a lore book named after the story. */
+    createStory: (story: Omit<Story, 'id' | 'createdAt'>, createDedicatedLoreBook?: boolean) => Promise<string>;
     updateStory: (id: string, story: Partial<Story>) => Promise<void>;
     deleteStory: (id: string) => Promise<void>;
     setCurrentStory: (story: Story | null) => void;
@@ -62,14 +63,19 @@ export const useStoryStore = create<StoryState>((set, _get) => ({
     },
 
     // Create a new story
-    createStory: async (storyData) => {
-        const storyDataWithId = {
-            ...storyData,
-            id: crypto.randomUUID()
-        };
+    createStory: async (storyData, createDedicatedLoreBook = true) => {
+        const storyId = crypto.randomUUID();
         set({ loading: true, error: null });
         try {
-            const storyId = await db.createNewStory(storyDataWithId);
+            let lorebookIds: string[] = [];
+
+            if (createDedicatedLoreBook) {
+                const lorebookId = crypto.randomUUID();
+                await db.createLoreBook({ id: lorebookId, name: storyData.title, isDemo: storyData.isDemo });
+                lorebookIds = [lorebookId];
+            }
+
+            await db.createNewStory({ ...storyData, id: storyId, lorebookIds });
             const newStory = await db.stories.get(storyId);
             if (!newStory) throw new Error('Failed to create story');
 
