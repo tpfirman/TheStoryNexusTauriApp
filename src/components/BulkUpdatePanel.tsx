@@ -41,7 +41,7 @@ export function BulkUpdatePanel({
         setIsLoadingModels(true);
         try {
             const aiService = AIService.getInstance();
-            const models = await aiService.getAvailableModels(undefined, true);
+            const models = await aiService.getAvailableModels(undefined, false);
             setAvailableModels(models);
             if (models.length > 0) {
                 setSelectedModel(models[0].id);

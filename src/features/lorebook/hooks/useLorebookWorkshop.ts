@@ -4,6 +4,7 @@ import { aiService } from '@/services/ai/AIService';
 import { parseLorebookJson } from '@/features/brainstorm/utils/parseLorebookJson';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import { LOREBOOK_TEMPLATES } from '@/features/lorebook/utils/lorebookTemplates';
+import { splitThinkingContent } from '@/lib/thinking';
 
 const JSON_OUTPUT_INSTRUCTION = `
 
@@ -86,7 +87,8 @@ export function useLorebookWorkshop(): UseLorebookWorkshopReturn {
                 response,
                 (token) => {
                     fullText += token;
-                    setState(prev => ({ ...prev, streamingContent: prev.streamingContent + token }));
+                    const { proseText } = splitThinkingContent(fullText);
+                    setState(prev => ({ ...prev, streamingContent: proseText }));
                 },
                 () => {
                     const { entries } = parseLorebookJson(fullText);

@@ -54,7 +54,7 @@ export function LorebookWorkshopDialog({
     initialCategory,
 }: LorebookWorkshopDialogProps) {
     const mode = targetEntry ? 'refine' : 'create';
-    const { agentPresets, getAgentPresetsByRole } = useAgentsStore();
+    const { agentPresets, getAgentPresetsByRole, loadAgentPresets } = useAgentsStore();
 
     // Agent selection
     const writerPresets = getAgentPresetsByRole('lore_writer');
@@ -83,9 +83,10 @@ export function LorebookWorkshopDialog({
         }
     }, [workshop.streamingContent, workshop.parsedPreview]);
 
-    // Reset on open
+    // Reset on open and ensure agent presets are seeded
     useEffect(() => {
         if (open) {
+            loadAgentPresets();
             workshop.reset();
             setSeedText('');
             setFollowUpText('');
