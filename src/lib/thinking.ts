@@ -35,8 +35,14 @@ export function splitThinkingContent(raw: string): ThinkingSplit {
         prose = prose.slice(0, openIdx);
     }
 
-    if (thinkParts.length > 0) {
-        console.error(`[think] stripped ${thinkParts.length} block(s), thinking=${thinkParts[0]?.slice(0, 60)}..., prose=${prose.trimStart().slice(0, 60)}`);
+    // Handle orphan </think>: some models (via LMStudio) suppress the opening <think> token
+    // but emit </think> as plain text. Everything before </think> is thinking content.
+    if (thinkParts.length === 0) {
+        const closeIdx = prose.search(/<\/think>/i);
+        if (closeIdx !== -1) {
+            thinkParts.push(prose.slice(0, closeIdx).trim());
+            prose = prose.slice(closeIdx + '</think>'.length);
+        }
     }
 
     return {

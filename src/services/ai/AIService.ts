@@ -432,6 +432,13 @@ export class AIService {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        // Buffer incomplete SSE lines across chunk boundaries.
+        // WebKitGTK (Tauri AppImage) delivers raw HTTP data frames that can split a
+        // "data: {...}\n" SSE line mid-JSON. Without this buffer, the two halves each
+        // fail JSON.parse() and are silently dropped — producing word-salad output.
+        // Chrome buffers to line boundaries before delivering to JS, so this never
+        // manifests in the web app.
+        let lineBuffer = '';
 
         try {
             while (true) {
@@ -441,15 +448,16 @@ export class AIService {
                     break;
                 }
 
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n').filter(line => line.trim() !== '');
-                console.error(`[SSE] chunk: ${chunk.length} bytes, ${lines.length} lines`);
+                lineBuffer += decoder.decode(value, { stream: true });
+                const lines = lineBuffer.split('\n');
+                // Last element may be an incomplete line — hold it for the next chunk.
+                lineBuffer = lines.pop() ?? '';
 
                 for (const line of lines) {
+                    if (line.trim() === '') continue;
                     if (line.startsWith('data: ')) {
                         const data = line.substring(6);
                         if (data === '[DONE]') {
-                            console.error('[SSE] [DONE] received');
                             onComplete();
                             return;
                         }
@@ -457,11 +465,10 @@ export class AIService {
                             const json = JSON.parse(data);
                             const text = json.choices[0]?.delta?.content || '';
                             if (text) {
-                                console.error(`[SSE] token(${text.length}): ${JSON.stringify(text.slice(0, 40))}`);
                                 onToken(text);
                             }
-                        } catch (e) {
-                            // Ignore parsing errors for non-JSON lines
+                        } catch {
+                            // Incomplete or non-JSON line — silently skip
                         }
                     }
                 }

@@ -52,6 +52,8 @@ interface AgentPresetFormProps {
 const AGENT_ROLES: { value: AgentRole; label: string; description: string }[] = [
     { value: 'summarizer', label: 'Summarizer', description: 'Condenses content to reduce tokens' },
     { value: 'prose_writer', label: 'Prose Writer', description: 'Main creative writing agent' },
+    { value: 'lore_writer', label: 'Lore Writer', description: 'Creates new lorebook entries from a seed concept' },
+    { value: 'lore_refiner', label: 'Lore Refiner', description: 'Iteratively refines existing lorebook entries' },
     { value: 'lore_judge', label: 'Lore Judge', description: 'Validates lore consistency' },
     { value: 'continuity_checker', label: 'Continuity Checker', description: 'Checks plot/character continuity' },
     { value: 'style_editor', label: 'Style Editor', description: 'Refines prose style and tone' },

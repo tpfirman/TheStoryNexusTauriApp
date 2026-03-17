@@ -94,12 +94,9 @@ export function useLorebookWorkshop(): UseLorebookWorkshopReturn {
                     setState(prev => ({ ...prev, streamingContent: proseText }));
                 },
                 () => {
-                    console.error(`[lorebook] onComplete: fullText(${fullText.length}) first80=${JSON.stringify(fullText.slice(0, 80))}`);
                     const { proseText } = splitThinkingContent(fullText);
-                    console.error(`[lorebook] proseText(${proseText.length}) first80=${JSON.stringify(proseText.slice(0, 80))}`);
                     const { entries } = parseLorebookJson(proseText);
                     const parsed = entries[0] ?? null;
-                    console.error(`[lorebook] parsed=${parsed ? JSON.stringify(parsed).slice(0, 80) : 'null'}`);
                     const updatedHistory: PromptMessage[] = [
                         ...history,
                         { role: 'assistant', content: proseText },
