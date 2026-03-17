@@ -143,6 +143,7 @@ export function LorebookWorkshopDialog({
 
     const hasGenerated = workshop.conversationHistory.some(m => m.role === 'assistant');
     const turnCount = workshop.conversationHistory.filter(m => m.role === 'assistant').length;
+    const [showRaw, setShowRaw] = useState(false);
 
     // Display text: streaming in-flight, or last assistant message when done
     const displayText = workshop.isGenerating
@@ -348,6 +349,17 @@ export function LorebookWorkshopDialog({
                         )}
 
                         {/* Raw streaming / output area */}
+                        <div className="flex items-center justify-between shrink-0">
+                            <span className="text-xs text-muted-foreground">Output</span>
+                            {workshop.rawResponse && !workshop.isGenerating && (
+                                <button
+                                    onClick={() => setShowRaw(r => !r)}
+                                    className="text-xs text-muted-foreground underline"
+                                >
+                                    {showRaw ? 'Show stripped' : 'Show raw'}
+                                </button>
+                            )}
+                        </div>
                         <div
                             ref={outputRef}
                             className="flex-1 overflow-y-auto rounded-md border bg-muted/30 p-3 font-mono text-xs whitespace-pre-wrap min-h-32"
@@ -355,11 +367,11 @@ export function LorebookWorkshopDialog({
                             {workshop.isGenerating && !displayText && (
                                 <span className="text-muted-foreground animate-pulse">Generating…</span>
                             )}
-                            {displayText}
+                            {showRaw ? workshop.rawResponse : displayText}
                             {workshop.isGenerating && (
                                 <span className="inline-block w-2 h-4 bg-foreground ml-0.5 animate-pulse" />
                             )}
-                            {!workshop.isGenerating && !displayText && !workshop.error && (
+                            {!workshop.isGenerating && !displayText && !workshop.rawResponse && !workshop.error && (
                                 <span className="text-muted-foreground">
                                     {mode === 'create'
                                         ? 'Enter a concept and click Generate to create a lorebook entry.'

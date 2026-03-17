@@ -16,6 +16,8 @@ interface WorkshopState {
     isGenerating: boolean;
     error: string | null;
     parsedPreview: Partial<LorebookEntry> | null;
+    /** Raw model output before think-block stripping — used for diagnostics */
+    rawResponse: string;
 }
 
 interface UseLorebookWorkshopReturn extends WorkshopState {
@@ -33,6 +35,7 @@ const INITIAL_STATE: WorkshopState = {
     isGenerating: false,
     error: null,
     parsedPreview: null,
+    rawResponse: '',
 };
 
 export function useLorebookWorkshop(): UseLorebookWorkshopReturn {
@@ -107,6 +110,7 @@ export function useLorebookWorkshop(): UseLorebookWorkshopReturn {
                         streamingContent: '',
                         conversationHistory: updatedHistory,
                         parsedPreview: parsed,
+                        rawResponse: fullText,
                         error: parsed ? null : (fullText ? 'Could not parse a lorebook entry from the response. Try sending a follow-up asking for valid JSON.' : null),
                     }));
                 },
