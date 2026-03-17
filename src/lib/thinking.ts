@@ -35,6 +35,10 @@ export function splitThinkingContent(raw: string): ThinkingSplit {
         prose = prose.slice(0, openIdx);
     }
 
+    if (thinkParts.length > 0) {
+        console.debug(`[think] stripped ${thinkParts.length} block(s), thinking=${thinkParts[0]?.slice(0, 60)}..., prose=${prose.trimStart().slice(0, 60)}`);
+    }
+
     return {
         proseText: prose.trimStart(),
         thinkingText: thinkParts.join('\n\n').trim(),

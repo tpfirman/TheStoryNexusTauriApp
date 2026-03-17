@@ -443,11 +443,13 @@ export class AIService {
 
                 const chunk = decoder.decode(value, { stream: true });
                 const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                console.debug(`[SSE] chunk: ${chunk.length} bytes, ${lines.length} lines`);
 
                 for (const line of lines) {
                     if (line.startsWith('data: ')) {
                         const data = line.substring(6);
                         if (data === '[DONE]') {
+                            console.debug('[SSE] [DONE] received');
                             onComplete();
                             return;
                         }
@@ -455,6 +457,7 @@ export class AIService {
                             const json = JSON.parse(data);
                             const text = json.choices[0]?.delta?.content || '';
                             if (text) {
+                                console.debug(`[SSE] token(${text.length}): ${JSON.stringify(text.slice(0, 40))}`);
                                 onToken(text);
                             }
                         } catch (e) {
