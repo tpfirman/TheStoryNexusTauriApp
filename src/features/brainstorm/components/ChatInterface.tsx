@@ -26,6 +26,7 @@ import MarkdownRenderer from "./MarkdownRenderer";
 import parseLorebookJson from "@/features/brainstorm/utils/parseLorebookJson";
 import { CreateEntryDialog } from '@/features/lorebook/components/CreateEntryDialog';
 import { cn } from '@/lib/utils';
+import { splitThinkingContent } from '@/lib/thinking';
 import {
   LorebookEntry,
   ChatMessage,
@@ -482,10 +483,11 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         response,
         (token) => {
           fullResponse += token;
+          const { proseText } = splitThinkingContent(fullResponse);
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessage.id
-                ? { ...msg, content: fullResponse }
+                ? { ...msg, content: proseText }
                 : msg
             )
           );
@@ -493,8 +495,9 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         () => {
           setIsGenerating(false);
           setStreamingMessageId(null);
+          const { proseText } = splitThinkingContent(fullResponse);
           updateChat(chatId, {
-            messages: [...newMessages, { ...assistantMessage, content: fullResponse }],
+            messages: [...newMessages, { ...assistantMessage, content: proseText }],
           });
         },
         (error) => {
@@ -595,10 +598,11 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
           },
           onToken: (token) => {
             fullResponse += token;
+            const { proseText } = splitThinkingContent(fullResponse);
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMessage.id
-                  ? { ...msg, content: fullResponse }
+                  ? { ...msg, content: proseText }
                   : msg
               )
             );
@@ -606,9 +610,10 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
           onComplete: async (pipelineResult) => {
             console.log("[Agentic Brainstorm] Pipeline complete:", pipelineResult.status);
             setStreamingMessageId(null);
-            
-            // Use the final output from the pipeline
-            const finalContent = pipelineResult.proseOutput || pipelineResult.finalOutput || fullResponse;
+
+            // Use the final output from the pipeline (strip think blocks from raw output)
+            const rawFinal = pipelineResult.proseOutput || pipelineResult.finalOutput || fullResponse;
+            const finalContent = splitThinkingContent(rawFinal).proseText;
             
             // Update the chat with the final message
             await updateChat(chatId, {

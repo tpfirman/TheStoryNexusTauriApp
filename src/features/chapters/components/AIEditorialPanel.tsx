@@ -20,6 +20,7 @@ import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import { useAgenticGeneration } from '@/features/agents/hooks/useAgenticGeneration';
 import type { PipelinePreset } from '@/types/story';
 import { toast } from 'react-toastify';
+import { splitThinkingContent } from '@/lib/thinking';
 
 function wordCount(text: string): number {
     return text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
@@ -145,6 +146,7 @@ function ChapterEditContent({
         setOriginalText(chapterText);
         setHasRun(true);
 
+        let rawEditStream = '';
         await generateWithPipeline(
             selectedPipelineId,
             {
@@ -158,10 +160,11 @@ function ChapterEditContent({
             },
             {
                 onToken: (token) => {
-                    setStreamedOutput((prev) => prev + token);
+                    rawEditStream += token;
+                    setStreamedOutput(splitThinkingContent(rawEditStream).proseText);
                 },
                 onComplete: (r) => {
-                    setFinalOutput(r.finalOutput);
+                    setFinalOutput(splitThinkingContent(r.finalOutput).proseText);
                     setStreamedOutput('');
                 },
                 onError: (err) => {
