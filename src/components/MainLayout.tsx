@@ -42,8 +42,11 @@ export function MainLayout() {
                     ))}
                 </div>
 
-                {/* Theme Toggle at Bottom */}
-                <div className="pb-4">
+                {/* Build date + Theme Toggle at Bottom */}
+                <div className="pb-4 flex flex-col items-center gap-2">
+                    <span className="text-[9px] text-muted-foreground/50 writing-mode-vertical rotate-180 select-none" style={{writingMode:'vertical-rl'}}>
+                        {__BUILD_DATE__}
+                    </span>
                     <ThemeToggle />
                 </div>
             </div>
