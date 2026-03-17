@@ -91,11 +91,12 @@ export function useLorebookWorkshop(): UseLorebookWorkshopReturn {
                     setState(prev => ({ ...prev, streamingContent: proseText }));
                 },
                 () => {
-                    const { entries } = parseLorebookJson(fullText);
+                    const { proseText } = splitThinkingContent(fullText);
+                    const { entries } = parseLorebookJson(proseText);
                     const parsed = entries[0] ?? null;
                     const updatedHistory: PromptMessage[] = [
                         ...history,
-                        { role: 'assistant', content: fullText },
+                        { role: 'assistant', content: proseText },
                     ];
                     setState(prev => ({
                         ...prev,
