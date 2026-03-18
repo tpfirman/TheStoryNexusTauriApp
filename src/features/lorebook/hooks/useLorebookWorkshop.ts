@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { toast } from 'react-toastify';
 import type { AgentPreset, LorebookEntry, PromptMessage } from '@/types/story';
 import { aiService } from '@/services/ai/AIService';
 import { parseLorebookJson } from '@/features/brainstorm/utils/parseLorebookJson';
@@ -110,6 +111,9 @@ export function useLorebookWorkshop(): UseLorebookWorkshopReturn {
                         rawResponse: fullText,
                         error: parsed ? null : (fullText ? 'Could not parse a lorebook entry from the response. Try sending a follow-up asking for valid JSON.' : null),
                     }));
+                    if (parsed) {
+                        toast.success('Lorebook entry generated', { autoClose: 3000 });
+                    }
                 },
                 (error) => {
                     setPartialState({ isGenerating: false, error: error.message });

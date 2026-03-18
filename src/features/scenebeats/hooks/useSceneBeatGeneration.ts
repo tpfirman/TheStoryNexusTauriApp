@@ -168,7 +168,10 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
             await processStreamedResponse(
                 response,
                 (token) => store.getState().appendStreamedText(token),
-                () => store.setState({ streamComplete: true }),
+                () => {
+                    store.setState({ streamComplete: true });
+                    toast.success('Generation complete', { autoClose: 3000 });
+                },
                 (error) => {
                     console.error('Error streaming response:', error);
                     toast.error('Failed to generate text');
@@ -207,6 +210,10 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
             return;
         }
 
+        // Capture and clear rejection feedback before building context (single-use)
+        const { rejectionFeedback, rejectedOutput } = store.getState();
+        store.setState({ rejectionFeedback: null, rejectedOutput: null });
+
         try {
             store.setState({
                 streaming: true,
@@ -214,6 +221,9 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                 streamComplete: false,
                 showAgenticProgress: true,
                 agenticStepResults: [],
+                agenticJudgeResults: [],
+                latestJudgeFeedback: null,
+                showJudgeFeedback: false,
             });
 
             // Build context directly from store state (no prompt required for agentic mode)
@@ -283,6 +293,9 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                 storyLanguage: currentStory?.language,
                 storyFormat,
                 universeType,
+                // Pass rejection feedback so the first prose step uses a multi-turn conversation
+                rejectionFeedback: rejectionFeedback ?? undefined,
+                rejectedOutput: rejectedOutput ?? undefined,
             };
 
             const callbacks: AgenticGenerationCallbacks = {
@@ -293,12 +306,36 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                     store.setState((prev) => ({
                         agenticStepResults: [...prev.agenticStepResults, stepResult],
                     }));
+                    // Surface judge feedback inline (Area 4)
+                    const isJudge = stepResult.role === 'lore_judge' || stepResult.role === 'continuity_checker';
+                    if (isJudge) {
+                        const upper = stepResult.output.toUpperCase();
+                        const hasSentinel = upper.includes('##LORE_ISSUE##') || upper.includes('##CONTINUITY_ISSUE##');
+                        const isConsistent = upper.trimStart().startsWith('CONSISTENT');
+                        const hasLegacyIssue = !isConsistent && upper.includes('ISSUE') &&
+                            !upper.includes('NO ISSUE') && !upper.includes('WITHOUT ISSUE');
+                        const hasIssues = hasSentinel || hasLegacyIssue;
+                        store.setState((prev) => ({
+                            agenticJudgeResults: [...prev.agenticJudgeResults, stepResult],
+                            latestJudgeFeedback: hasIssues ? stepResult.output : null,
+                            showJudgeFeedback: hasIssues,
+                        }));
+                    }
                 },
                 onNewStreamingStep: () => store.setState({ rawStreamedText: '', streamedText: '', thinkingText: '' }),
                 onToken: (token) => store.getState().appendStreamedText(token),
                 onComplete: (pipelineResult) => {
                     console.log('[Agentic] Pipeline complete:', pipelineResult);
                     store.setState({ streaming: false, streamComplete: true, showAgenticProgress: false });
+
+                    // Completion toast (Area 5)
+                    const pipelineName = s.selectedPipeline?.name || 'Pipeline';
+                    const stepCount = pipelineResult.steps.length;
+                    if (pipelineResult.verificationStatus === 'failed') {
+                        toast.warn(`${pipelineName} complete — lore issues remain (${stepCount} steps)`, { autoClose: 5000 });
+                    } else {
+                        toast.success(`${pipelineName} complete (${stepCount} steps)`, { autoClose: 3000 });
+                    }
 
                     if (s.sceneBeatId) {
                         sceneBeatService.updateSceneBeat(s.sceneBeatId, {
@@ -391,6 +428,15 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
     }, [store, editor]);
 
     const handleReject = useCallback(() => {
+        // Plain reject: clear rejection feedback too (user changed their mind)
+        store.setState({ rejectedOutput: null, rejectionFeedback: null });
+        store.getState().resetGeneration();
+    }, [store]);
+
+    const handleRejectWithFeedback = useCallback((feedback: string) => {
+        const { streamedText } = store.getState();
+        // Store the rejected output and user's feedback for next generation run
+        store.setState({ rejectedOutput: streamedText, rejectionFeedback: feedback });
         store.getState().resetGeneration();
     }, [store]);
 
@@ -445,6 +491,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
         handleParallelAccept,
         handleAccept,
         handleReject,
+        handleRejectWithFeedback,
         handleDelete,
         abortGeneration,
     };

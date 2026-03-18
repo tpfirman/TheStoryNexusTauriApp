@@ -167,13 +167,16 @@ Check for:
 - Relationship dynamics matching established patterns
 - Factual contradictions with established lore
 
-Response format:
-- If everything is consistent, respond with exactly: CONSISTENT
-- If there are issues, list each one briefly:
-  ISSUE: [Brief description of the inconsistency]
-  SUGGESTION: [How to fix it]
+Response format — FOLLOW EXACTLY:
+- If prose is fully consistent with the lorebook: respond with only this word: CONSISTENT
+- If there are contradictions, use this exact format for each:
+  ##LORE_ISSUE##
+  DESCRIPTION: [specific factual contradiction with lorebook]
+  SUGGESTION: [minimum prose change to fix it]
 
-Be thorough but concise. Focus on actual contradictions, not stylistic preferences.`,
+Do NOT use the word "issue" anywhere except inside a ##LORE_ISSUE## block.
+Do NOT write CONSISTENT if any ##LORE_ISSUE## blocks follow.
+Flag only factual contradictions. Style differences, omissions of lore the writer wasn't given, and personal preference are NOT issues.`,
         temperature: 0.2,
         maxTokens: 800,
         isSystem: true,
@@ -194,13 +197,15 @@ Review for:
 - Physical impossibilities (character in two places at once)
 - Emotional continuity (reactions matching previous scenes)
 
-Response format:
-- If consistent, respond with exactly: CONSISTENT
-- If there are issues:
-  CONTINUITY ISSUE: [Description]
-  CONTEXT: [What was established earlier]
-  SUGGESTION: [How to resolve]
+Response format — FOLLOW EXACTLY:
+- If consistent: respond with only: CONSISTENT
+- If there are issues, use this exact format for each:
+  ##CONTINUITY_ISSUE##
+  DESCRIPTION: [what contradicts earlier content]
+  CONTEXT: [what was previously established]
+  SUGGESTION: [how to resolve]
 
+Do NOT use the word "issue" outside of ##CONTINUITY_ISSUE## blocks.
 Focus on narrative logic, not style preferences.`,
         temperature: 0.2,
         maxTokens: 600,
@@ -475,6 +480,26 @@ const SYSTEM_PIPELINE_PRESETS: {
             { role: 'lore_judge' },
             // Revision step: only runs if lore judge found issues
             { role: 'prose_writer', condition: 'roleOutputContains:lore_judge:ISSUE', isRevision: true, streamOutput: true },
+        ],
+    },
+    {
+        name: 'Quality Prose with Verification',
+        description: 'Writes prose, checks lore, revises up to twice if issues found, then re-checks to confirm all issues were resolved.',
+        agentRoles: [
+            { role: 'summarizer', condition: 'wordCount > 3000' },
+            { role: 'prose_writer', streamOutput: true },
+            { role: 'lore_judge' },
+            // Revision step: loops up to 2 times if lore judge found issues
+            {
+                role: 'prose_writer',
+                condition: 'roleOutputContains:lore_judge:ISSUE',
+                isRevision: true,
+                streamOutput: true,
+                retryFromStep: 3,
+                maxIterations: 2,
+            },
+            // Verification pass: re-runs the lore judge on the final revision to confirm resolution
+            { role: 'lore_judge' },
         ],
     },
     {

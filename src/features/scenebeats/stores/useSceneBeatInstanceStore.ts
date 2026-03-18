@@ -104,6 +104,16 @@ export interface SceneBeatInstanceState {
     // Agentic results (kept for diagnostics dialog)
     agenticStepResults: AgentResult[];
 
+    // Inline judge feedback (Area 4)
+    agenticJudgeResults: AgentResult[];
+    latestJudgeFeedback: string | null;
+    showJudgeFeedback: boolean;
+
+    // Reject-with-feedback state (Area 6)
+    rejectedOutput: string | null;
+    rejectionFeedback: string | null;
+    showRejectionInput: boolean;
+
     // Tag matching
     localMatchedEntries: Map<string, LorebookEntry>;
 
@@ -194,6 +204,16 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
 
         // Agentic results
         agenticStepResults: [],
+
+        // Inline judge feedback
+        agenticJudgeResults: [],
+        latestJudgeFeedback: null,
+        showJudgeFeedback: false,
+
+        // Reject-with-feedback
+        rejectedOutput: null,
+        rejectionFeedback: null,
+        showRejectionInput: false,
 
         // Tag matching
         localMatchedEntries: new Map(),
@@ -323,7 +343,20 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
         },
 
         resetGeneration: () => {
-            set({ rawStreamedText: '', streamedText: '', thinkingText: '', streamComplete: false, streaming: false });
+            set({
+                rawStreamedText: '',
+                streamedText: '',
+                thinkingText: '',
+                streamComplete: false,
+                streaming: false,
+                // Clear inline judge feedback
+                agenticJudgeResults: [],
+                latestJudgeFeedback: null,
+                showJudgeFeedback: false,
+                showRejectionInput: false,
+                // Note: rejectedOutput and rejectionFeedback are intentionally NOT cleared here.
+                // They are preserved for the next generation run and cleared there after use.
+            });
         },
     }));
 }

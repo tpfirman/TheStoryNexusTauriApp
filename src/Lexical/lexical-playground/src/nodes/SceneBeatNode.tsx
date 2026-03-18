@@ -41,6 +41,7 @@ import { SceneBeatMatchedEntries } from "./SceneBeatMatchedEntries";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { sceneBeatService } from "@/features/scenebeats/services/sceneBeatService";
 import { PipelineDiagnosticsDialog } from "@/features/agents/components/PipelineDiagnosticsDialog";
+import { JudgeFeedbackBanner } from "@/features/agents/components/JudgeFeedbackBanner";
 import { ParallelResponsesDrawer } from "@/components/ui/parallel-responses-drawer";
 
 // Per-instance store
@@ -100,6 +101,11 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   const selectedItems = useSBStore((s) => s.selectedItems);
   const agenticStepResults = useSBStore((s) => s.agenticStepResults);
   const selectedPipeline = useSBStore((s) => s.selectedPipeline);
+  const showJudgeFeedback = useSBStore((s) => s.showJudgeFeedback);
+  const latestJudgeFeedback = useSBStore((s) => s.latestJudgeFeedback);
+  const agenticJudgeResults = useSBStore((s) => s.agenticJudgeResults);
+  const rejectionFeedback = useSBStore((s) => s.rejectionFeedback);
+  const showRejectionInput = useSBStore((s) => s.showRejectionInput);
   const set = useSBStore((s) => s.set);
 
   // Generation hook — pass the store API for imperative access
@@ -429,6 +435,17 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
             </div>
           )}
 
+          {/* Inline judge feedback banner — shown when a judge step found issues */}
+          {showJudgeFeedback && latestJudgeFeedback && (streaming || streamComplete) && (
+            <div className="px-3 md:px-4">
+              <JudgeFeedbackBanner
+                feedback={latestJudgeFeedback}
+                agentName={agenticJudgeResults[agenticJudgeResults.length - 1]?.agentName}
+                onDismiss={() => set({ showJudgeFeedback: false })}
+              />
+            </div>
+          )}
+
           {/* Streamed text preview */}
           {(streaming || streamComplete) && (streamedText || (!thinkingText && streaming)) && (
             <div className="px-3 md:px-4 pb-3">
@@ -460,6 +477,7 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
             onParallelGenerate={gen.handleParallelGenerate}
             onAccept={gen.handleAccept}
             onReject={gen.handleReject}
+            onRejectWithFeedback={gen.handleRejectWithFeedback}
           />
 
           {/* Matched entries panel */}

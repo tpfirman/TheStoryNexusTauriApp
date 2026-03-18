@@ -25,6 +25,9 @@ export interface AgenticGenerationContext {
     storyLanguage?: string;
     storyFormat?: StoryFormat;
     universeType?: UniverseType;
+    // Rejection feedback — if set, the first prose step uses a multi-turn conversation
+    rejectionFeedback?: string;
+    rejectedOutput?: string;
 }
 
 export function useAgenticGeneration() {
@@ -64,6 +67,8 @@ export function useAgenticGeneration() {
                 storyLanguage: context.storyLanguage,
                 storyFormat: context.storyFormat,
                 universeType: context.universeType,
+                rejectionFeedback: context.rejectionFeedback,
+                rejectedOutput: context.rejectedOutput,
             };
 
             // Execute the pipeline

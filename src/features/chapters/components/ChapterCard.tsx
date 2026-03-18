@@ -55,6 +55,7 @@ import { AIGenerateMenu } from "@/components/ui/ai-generate-menu";
 import { useLorebookStore } from "@/features/lorebook/stores/useLorebookStore";
 import { useStoryStore } from "@/features/stories/stores/useStoryStore";
 import { DownloadMenu } from "@/components/ui/DownloadMenu";
+import { splitThinkingContent } from "@/lib/thinking";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -230,14 +231,16 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
           response,
           (token) => {
             text += token;
-            setSummary(text);
+            const { proseText } = splitThinkingContent(text);
+            setSummary(proseText);
           },
           resolve,
           reject
         );
       });
 
-      await updateChapterSummaryOptimistic(chapter.id, text);
+      const { proseText: finalSummary } = splitThinkingContent(text);
+      await updateChapterSummaryOptimistic(chapter.id, finalSummary);
       toast.success("Summary generated successfully");
     } catch (error) {
       console.error("Failed to generate summary:", error);

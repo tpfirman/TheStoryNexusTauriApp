@@ -1,4 +1,5 @@
 import { aiService } from './AIService';
+import { splitThinkingContent } from '@/lib/thinking';
 import {
     PromptMessage,
     AllowedModel,
@@ -39,6 +40,10 @@ export interface PipelineInput {
     universeType?: UniverseType;
     // Custom data for extensibility
     customData?: Record<string, unknown>;
+    // User rejection feedback — if set, the first prose_writer step uses a multi-turn
+    // conversation so the model knows why the previous attempt was rejected.
+    rejectionFeedback?: string;
+    rejectedOutput?: string;
 }
 
 export interface ExecutablePipelineStep {
@@ -62,6 +67,10 @@ export interface PipelineResult {
     totalDuration: number;
     status: 'completed' | 'failed' | 'aborted';
     error?: string;
+    // Whether the final judge pass confirmed all issues were resolved
+    verificationStatus?: 'passed' | 'failed' | 'skipped';
+    // Raw output from the last judge, if issues remain
+    unresolvedIssues?: string;
 }
 
 export class AgentOrchestrator {
@@ -147,19 +156,25 @@ export class AgentOrchestrator {
                     const messages = this.buildMessages(step.agent, input, results, step.isRevision, step);
                     const shouldStream = step.streamOutput ?? false; // Default to NOT streaming
 
-                    let output: string;
+                    let rawOutput: string;
                     if (shouldStream && callbacks?.onToken) {
                         // Clear any previously streamed output before this step starts streaming,
                         // so revision steps replace the initial output rather than appending to it.
                         callbacks.onNewStreamingStep?.();
-                        output = await this.generateStreaming(step.agent, messages, callbacks.onToken);
+                        rawOutput = await this.generateStreaming(step.agent, messages, callbacks.onToken);
                     } else {
-                        output = await this.generateNonStreaming(step.agent, messages);
+                        rawOutput = await this.generateNonStreaming(step.agent, messages);
                     }
+
+                    // Strip <think>...</think> blocks from ALL step outputs so that judge feedback
+                    // and prose passed between steps is never contaminated by reasoning tokens.
+                    // The thinking text is preserved in metadata for diagnostics.
+                    const { proseText: output, thinkingText } = splitThinkingContent(rawOutput);
 
                     const metadata: Record<string, unknown> = {};
                     if (step.isRevision) metadata.isRevision = true;
                     if (iterationCounts.has(i)) metadata.iteration = iterationCounts.get(i);
+                    if (thinkingText) metadata.thinkingText = thinkingText;
 
                     const result: AgentResult = {
                         role: step.agent.role,
@@ -202,12 +217,29 @@ export class AgentOrchestrator {
             // Find the prose output (last prose_writer, style_editor, or dialogue_specialist)
             const proseOutput = this.getLastProseOutput(results);
 
+            // Determine verification status from the last judge result
+            const lastJudgeResult = [...results].reverse().find(r =>
+                r.role === 'lore_judge' || r.role === 'continuity_checker'
+            );
+            let verificationStatus: PipelineResult['verificationStatus'] = 'skipped';
+            let unresolvedIssues: string | undefined;
+            if (lastJudgeResult) {
+                if (this.hasJudgeIssues(lastJudgeResult.output)) {
+                    verificationStatus = 'failed';
+                    unresolvedIssues = lastJudgeResult.output;
+                } else {
+                    verificationStatus = 'passed';
+                }
+            }
+
             return {
                 finalOutput: results[results.length - 1]?.output ?? '',
                 proseOutput,
                 steps: results,
                 totalDuration: Date.now() - startTime,
-                status: 'completed'
+                status: 'completed',
+                verificationStatus,
+                unresolvedIssues,
             };
 
         } catch (error) {
@@ -279,15 +311,44 @@ export class AgentOrchestrator {
      */
     private getLastProseOutput(results: AgentResult[]): string {
         const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
-        
+
         // Find the last result from a prose-generating role
         for (let i = results.length - 1; i >= 0; i--) {
             if (proseRoles.includes(results[i].role)) {
                 return results[i].output;
             }
         }
-        
+
         return '';
+    }
+
+    /**
+     * Get the last prose AgentResult (not just the output string).
+     * Always scans backwards so revision loops return the most recent prose, not the first.
+     */
+    private getLastProseResult(results: AgentResult[]): AgentResult | undefined {
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
+        for (let i = results.length - 1; i >= 0; i--) {
+            if (proseRoles.includes(results[i].role)) {
+                return results[i];
+            }
+        }
+        return undefined;
+    }
+
+    /**
+     * Determine whether a judge/checker output contains reported issues.
+     * Handles both the new sentinel token format (##LORE_ISSUE##, ##CONTINUITY_ISSUE##)
+     * and the legacy free-text "ISSUE:" format for backward compatibility with existing presets.
+     */
+    private hasJudgeIssues(output: string): boolean {
+        const upper = output.toUpperCase();
+        // New sentinel tokens — unambiguous
+        if (upper.includes('##LORE_ISSUE##') || upper.includes('##CONTINUITY_ISSUE##')) return true;
+        // If the output starts with CONSISTENT it is clean — check this before legacy scan
+        if (upper.trimStart().startsWith('CONSISTENT')) return false;
+        // Legacy: bare ISSUE keyword but not negated
+        return upper.includes('ISSUE') && !upper.includes('NO ISSUE') && !upper.includes('WITHOUT ISSUE');
     }
 
     /**
@@ -348,6 +409,28 @@ export class AgentOrchestrator {
             });
 
             return [systemMessage, originalUserMessage, assistantMessage, pushPromptMessage];
+        }
+
+        // Rejection feedback mode: build multi-turn conversation for the first prose step so the
+        // model understands why the previous attempt was rejected.
+        // Only applies to prose_writer on the first step (no prior prose results yet).
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
+        const hasPriorProse = previousResults.some(r => proseRoles.includes(r.role));
+        if (
+            !isRevision &&
+            agent.role === 'prose_writer' &&
+            !hasPriorProse &&
+            input.rejectionFeedback &&
+            input.rejectedOutput
+        ) {
+            const originalUserContent = this.buildProseWriterMessage(agent, input, [], false);
+            const feedbackMessage = `The previous response wasn't quite right. ${input.rejectionFeedback}\n\nPlease rewrite the scene beat with this in mind.`;
+            return [
+                systemMessage,
+                { role: 'user', content: originalUserContent },
+                { role: 'assistant', content: input.rejectedOutput },
+                { role: 'user', content: feedbackMessage },
+            ];
         }
 
         // Standard mode: [system, user]
@@ -562,13 +645,18 @@ export class AgentOrchestrator {
     private buildRevisionMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
         const lorebookEntries = this.getLorebookForAgent(agent, input);
 
-        // Find the original prose output
-        const proseResults = previousResults.filter(r => r.role === 'prose_writer');
-        const originalProse = proseResults[proseResults.length - 1]?.output || '';
+        // Find the most recent prose output (any prose role, not just prose_writer)
+        const originalProse = this.getLastProseResult(previousResults)?.output || '';
 
-        // Find feedback from judges (lore_judge or continuity_checker)
-        const feedbackResults = previousResults.filter(r => 
-            r.role === 'lore_judge' || r.role === 'continuity_checker'
+        // Find feedback from judges that came AFTER the last prose output only.
+        // This prevents stacking feedback from earlier iterations when maxIterations > 1.
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
+        const lastProseIdx = previousResults.reduce(
+            (last, r, idx) => proseRoles.includes(r.role) ? idx : last,
+            -1
+        );
+        const feedbackResults = previousResults.filter((r, idx) =>
+            idx > lastProseIdx && (r.role === 'lore_judge' || r.role === 'continuity_checker')
         );
         const feedback = feedbackResults
             .map(r => `[${r.role.toUpperCase()} FEEDBACK]:\n${r.output}`)
@@ -594,7 +682,7 @@ export class AgentOrchestrator {
     }
 
     private buildLoreJudgeMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
-        const proseOutput = previousResults.find(r => r.role === 'prose_writer')?.output || '';
+        const proseOutput = this.getLastProseResult(previousResults)?.output || '';
         const lorebookEntries = this.getLorebookForAgent(agent, input);
         
         const lorebookContext = lorebookEntries
@@ -607,13 +695,11 @@ LOREBOOK DATA:
 ${lorebookContext}
 
 PROSE TO CHECK:
-${proseOutput}
-
-List any inconsistencies found. If everything is consistent, respond with just: CONSISTENT`;
+${proseOutput}`;
     }
 
     private buildContinuityCheckerMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
-        const proseOutput = previousResults.find(r => r.role === 'prose_writer')?.output || '';
+        const proseOutput = this.getLastProseResult(previousResults)?.output || '';
         const contextText = this.getPreviousWordsForAgent(agent, input, previousResults);
 
         return `Check the following new prose for plot and character continuity with the previous context.
@@ -622,9 +708,7 @@ PREVIOUS CONTEXT:
 ${contextText}
 
 NEW PROSE:
-${proseOutput}
-
-List any continuity issues (timeline inconsistencies, character behavior changes, forgotten plot points). If consistent, respond with: CONSISTENT`;
+${proseOutput}`;
     }
 
     private buildStyleEditorMessage(agent: AgentPreset, previousResults: AgentResult[]): string {
@@ -945,8 +1029,16 @@ Provide the improved version:`;
                 if (parts.length >= 2) {
                     const role = parts[0].trim().toLowerCase();
                     const searchText = parts.slice(1).join(':').trim();
-                    const roleResult = previousResults.find(r => r.role.toLowerCase() === role);
+                    // Reverse scan so we check the MOST RECENT result for this role,
+                    // not the first (important after revision loops produce multiple judge results)
+                    const roleResult = [...previousResults].reverse().find(r => r.role.toLowerCase() === role);
                     if (roleResult) {
+                        // When checking judge roles for "ISSUE", use the robust hasJudgeIssues helper
+                        const isJudgeRole = role === 'lore_judge' || role === 'continuity_checker' ||
+                            role.includes('judge') || role.includes('checker');
+                        if (isJudgeRole && searchText.toUpperCase() === 'ISSUE') {
+                            return this.hasJudgeIssues(roleResult.output);
+                        }
                         return roleResult.output.toUpperCase().includes(searchText.toUpperCase());
                     }
                     return false;
@@ -962,21 +1054,10 @@ Provide the improved version:`;
 
             // Check if ANY judge role found issues (lore_judge, continuity_checker, or any role with 'judge' or 'checker')
             if (normalizedCondition === 'anyjudgefoundissues') {
-                const judgeRoles = ['lore_judge', 'continuity_checker'];
                 return previousResults.some(r => {
-                    const isJudgeRole = judgeRoles.includes(r.role) || 
-                                       r.role.includes('judge') || 
-                                       r.role.includes('checker');
-                    if (isJudgeRole) {
-                        // Check for common issue markers
-                        const output = r.output.toUpperCase();
-                        return output.includes('ISSUE') || 
-                               output.includes('INCONSISTEN') || 
-                               output.includes('ERROR') ||
-                               output.includes('PROBLEM') ||
-                               output.includes('CONFLICT');
-                    }
-                    return false;
+                    const isJudgeRole = r.role === 'lore_judge' || r.role === 'continuity_checker' ||
+                        r.role.includes('judge') || r.role.includes('checker');
+                    return isJudgeRole && this.hasJudgeIssues(r.output);
                 });
             }
 
