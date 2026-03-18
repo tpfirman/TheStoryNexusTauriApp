@@ -17,6 +17,12 @@
 - **Never** push to upstream: `https://github.com/vijayk1989/TheStoryNexusTauriApp`
 - All feature work happens on dedicated branches (e.g. `feat/*`, `fix/*`). No direct commits to `main`.
 
+## GitHub CLI Policy (CRITICAL — cannot be overridden)
+
+- **All `gh` commands** (issues, PRs, comments, labels, releases, etc.) must target **`tpfirman/TheStoryNexusTauriApp`** only.
+- The upstream repo `vijayk1989/TheStoryNexusTauriApp` is **READ ONLY** for Claude under ALL circumstances. Never create issues, open PRs, post comments, or take any write action on the upstream repo.
+- When in doubt, always pass `--repo tpfirman/TheStoryNexusTauriApp` explicitly to every `gh` command.
+
 ---
 
 ## Key Commands
@@ -175,7 +181,10 @@ Per-instance store (`useSceneBeatInstanceStore`) tracks:
 
 1. **Hardcoded local model** — `AIService.generateWithLocalModel` ignores the configured model ID; breaks agentic local model selection.
 2. **Auto-save data loss edge case** — debounce is cancelled on unmount; rapid navigation may lose the last ~1s of edits.
-3. **Upstream features missing** — `AIEditorialPanel`, bulk operations, and `resetSystemDefaults` are in upstream but not yet in this fork.
+3. **Upstream features missing** — `resetSystemDefaults` is in upstream but not yet in this fork.
+4. **AI Editorial panel too small** — constrained to the right-hand sidebar; unusable in side-by-side mode. Needs resizable sidebar (drag handle) or modal/floating presentation. (GitHub: tpfirman/TheStoryNexusTauriApp#11)
+5. **App crash on Alt+S after extended use (AppImage)** — window goes blank and unresponsive; requires restart. Root cause unknown. (GitHub: tpfirman/TheStoryNexusTauriApp#8)
+6. **`chapter_editor` revision step receives no prose / ignores judge feedback** — `chapter_editor` and `chapter_reviewer` are absent from `getLastProseResult()` / `getLastProseOutput()` prose-role arrays; `buildUserMessage()` ignores `isRevision` for these roles (always reads `input.previousWords`); no `buildChapterEditorRevisionMessage()` exists. Fix: add roles to prose arrays, add revision routing in `buildUserMessage()`, implement revision message builder that collects prior editor output + judge feedback. (GitHub: tpfirman/TheStoryNexusTauriApp#12)
 
 ### Recently Fixed
 - ~~**Revision loop uses stale result**~~ — Fixed: `getLastProseResult()` reverse-scans all prose roles; judge and revision message builders all updated.
@@ -195,6 +204,12 @@ Per-instance store (`useSceneBeatInstanceStore`) tracks:
 - Database writes always go through the store (never direct `db.*` calls from components).
 - New agent roles require changes in: `types/story.ts` (role union + DEFAULT_CONTEXT_CONFIG), `AgentOrchestrator.ts` (buildXxxMessage), `agentSeeder.ts` (SYSTEM_AGENT_PRESETS), `useAgentsStore.ts` (role label map).
 - Keep the Dexie schema version incremented when adding/changing tables or indexes.
+
+### Bug Investigation Conventions
+
+- **Always review the Known Issues and Recently Fixed sections** (below) before investigating a new bug. The bug may already be tracked, partially fixed, or share a root cause with a previous fix.
+- Check `bugs.md` for the running list of user-reported issues. Cross-reference with GitHub issues on `tpfirman/TheStoryNexusTauriApp`.
+- When a bug is fixed, update both `bugs.md` (remove or annotate the entry) and move it to the "Recently Fixed" section in CLAUDE.md.
 
 ### Pipeline / Agent Conventions
 
