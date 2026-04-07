@@ -17,6 +17,7 @@ import {
   useEffect,
   useRef,
 } from "react";
+import { SceneBeatErrorBoundary } from "@/components/SceneBeatErrorBoundary";
 import { ChevronDown as ChevronDownIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
@@ -630,9 +631,11 @@ export class SceneBeatNode extends DecoratorNode<JSX.Element> {
 
   decorate(): JSX.Element {
     return (
-      <Suspense fallback={null}>
-        <SceneBeatComponent nodeKey={this.__key} />
-      </Suspense>
+      <SceneBeatErrorBoundary nodeKey={this.__key}>
+        <Suspense fallback={null}>
+          <SceneBeatComponent nodeKey={this.__key} />
+        </Suspense>
+      </SceneBeatErrorBoundary>
     );
   }
 }
