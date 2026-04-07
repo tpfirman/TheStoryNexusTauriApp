@@ -495,7 +495,7 @@ export function StoryEditor() {
                 <SheetContent
                     side="right"
                     className="h-[100vh] w-full max-w-none overflow-hidden"
-                    style={{ width: `${editorialWidth}px` }}
+                    style={{ width: `${editorialWidth}px`, maxWidth: 'none' }}
                 >
                     {/* Drag handle on the left edge */}
                     <div
