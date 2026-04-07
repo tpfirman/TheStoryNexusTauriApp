@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book, Microscope, Loader2, Check } from "lucide-react";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,18 @@ type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNote
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
-    const [editorialWidth, setEditorialWidth] = useState(() => Math.round(window.innerWidth * 0.6));
+    const EDITORIAL_WIDTH_KEY = 'editorial-panel-width';
+    const [editorialWidth, setEditorialWidth] = useState(() => {
+        try {
+            const saved = localStorage.getItem(EDITORIAL_WIDTH_KEY);
+            if (saved) {
+                const n = parseInt(saved, 10);
+                if (!isNaN(n) && n >= 320) return Math.min(n, window.innerWidth - 80);
+            }
+        } catch { /* localStorage unavailable */ }
+        return Math.round(window.innerWidth * 0.6);
+    });
+    const dragWidthRef = useRef(editorialWidth);
     const { currentChapterId, currentStoryId } = useStoryContext();
     const saveStatus = useChapterStore((s) => s.saveStatus);
     const isMobile = useIsMobile();
@@ -67,11 +78,13 @@ export function StoryEditor() {
                 Math.max(startWidth + (startX - ev.clientX), 320),
                 window.innerWidth - 80
             );
+            dragWidthRef.current = next;
             setEditorialWidth(next);
         };
         const onMouseUp = () => {
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
+            try { localStorage.setItem(EDITORIAL_WIDTH_KEY, String(dragWidthRef.current)); } catch { /* ignore */ }
         };
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
@@ -475,7 +488,7 @@ export function StoryEditor() {
             </Sheet>
 
             {/* AI Editorial Sheet */}
-            <Sheet open={openDrawer === "chapterReview"} onOpenChange={(open) => { if (!open) { setOpenDrawer(null); setEditorialWidth(Math.round(window.innerWidth * 0.6)); } }}>
+            <Sheet open={openDrawer === "chapterReview"} onOpenChange={(open) => { if (!open) { setOpenDrawer(null); } }}>
                 <SheetContent
                     side="right"
                     className="h-[100vh] w-full max-w-none overflow-hidden"
@@ -483,7 +496,7 @@ export function StoryEditor() {
                 >
                     {/* Drag handle on the left edge */}
                     <div
-                        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10 hover:bg-primary/20 active:bg-primary/30 transition-colors"
+                        className="absolute left-0 top-0 bottom-0 w-3 cursor-col-resize z-10 bg-border/30 hover:bg-primary/40 active:bg-primary/60 transition-colors"
                         onMouseDown={startEditorialDrag}
                     />
                     <SheetHeader>
