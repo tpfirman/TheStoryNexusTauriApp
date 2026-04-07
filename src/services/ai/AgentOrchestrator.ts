@@ -310,7 +310,7 @@ export class AgentOrchestrator {
      * This is the actual content the user wants, not judge/checker outputs
      */
     private getLastProseOutput(results: AgentResult[]): string {
-        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor', 'chapter_reviewer'];
 
         // Find the last result from a prose-generating role
         for (let i = results.length - 1; i >= 0; i--) {
@@ -327,7 +327,7 @@ export class AgentOrchestrator {
      * Always scans backwards so revision loops return the most recent prose, not the first.
      */
     private getLastProseResult(results: AgentResult[]): AgentResult | undefined {
-        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor', 'chapter_reviewer'];
         for (let i = results.length - 1; i >= 0; i--) {
             if (proseRoles.includes(results[i].role)) {
                 return results[i];
@@ -573,7 +573,9 @@ export class AgentOrchestrator {
                 return this.buildChapterReviewerMessage(agent, input);
 
             case 'chapter_editor':
-                return this.buildChapterEditorMessage(agent, input);
+                return isRevision
+                    ? this.buildChapterEditorRevisionMessage(agent, input, previousResults)
+                    : this.buildChapterEditorMessage(agent, input);
 
             case 'custom':
             default:
@@ -808,6 +810,59 @@ Provide the improved version:`;
         }
 
         message += `---\nReturn the complete edited chapter text and nothing else:`;
+
+        return message;
+    }
+
+    private buildChapterEditorRevisionMessage(
+        agent: AgentPreset,
+        input: PipelineInput,
+        previousResults: AgentResult[],
+    ): string {
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const MAX_LORE_DESC_CHARS = 300;
+
+        // Find the last chapter_editor output as the prose to revise
+        const lastEditorIdx = previousResults.reduce(
+            (last, r, idx) => r.role === 'chapter_editor' ? idx : last,
+            -1,
+        );
+        const originalProse = lastEditorIdx >= 0
+            ? previousResults[lastEditorIdx].output
+            : input.previousWords || '';
+
+        // Collect reviewer/judge feedback from steps after the last chapter_editor output
+        const feedbackRoles: AgentRole[] = ['chapter_reviewer', 'lore_judge', 'continuity_checker'];
+        const feedbackResults = previousResults.filter(
+            (r, idx) => idx > lastEditorIdx && feedbackRoles.includes(r.role),
+        );
+        const feedback = feedbackResults
+            .map(r => `[${r.role.toUpperCase()} FEEDBACK]:\n${r.output}`)
+            .join('\n\n');
+
+        let message = 'You need to REVISE the following chapter based on the feedback provided.\n\n';
+
+        if (lorebookEntries.length > 0) {
+            const lorebookContext = lorebookEntries
+                .map(e => {
+                    const desc = e.description.length > MAX_LORE_DESC_CHARS
+                        ? e.description.slice(0, MAX_LORE_DESC_CHARS) + '…'
+                        : e.description;
+                    return `[${e.category?.toUpperCase() ?? 'LORE'}] ${e.name}: ${desc}`;
+                })
+                .join('\n\n');
+            message += `ESTABLISHED LORE & CHARACTERS:\n${lorebookContext}\n\n`;
+        }
+
+        if (input.povType) {
+            message += `POV: ${input.povType}`;
+            if (input.povCharacter) message += ` (${input.povCharacter})`;
+            message += '\n\n';
+        }
+
+        message += `CHAPTER TO REVISE:\n${originalProse}\n\n`;
+        message += `---\n${feedback}\n\n`;
+        message += `---\nPlease rewrite the complete chapter, addressing ALL issues from the feedback while maintaining the original intent and style. Return the full revised chapter text and nothing else:`;
 
         return message;
     }
