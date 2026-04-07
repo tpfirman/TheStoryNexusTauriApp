@@ -68,11 +68,13 @@ export function StoryEditor() {
     const isMobile = useIsMobile();
     const navigate = useNavigate();
 
-    const startEditorialDrag = useCallback((e: React.MouseEvent) => {
+    const startEditorialDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
         e.preventDefault();
+        const el = e.currentTarget;
+        el.setPointerCapture(e.pointerId);
         const startX = e.clientX;
         const startWidth = editorialWidth;
-        const onMouseMove = (ev: MouseEvent) => {
+        const onPointerMove = (ev: PointerEvent) => {
             // dragging left increases width (panel is on the right)
             const next = Math.min(
                 Math.max(startWidth + (startX - ev.clientX), 320),
@@ -81,13 +83,14 @@ export function StoryEditor() {
             dragWidthRef.current = next;
             setEditorialWidth(next);
         };
-        const onMouseUp = () => {
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
+        const onPointerUp = (ev: PointerEvent) => {
+            el.releasePointerCapture(ev.pointerId);
+            el.removeEventListener('pointermove', onPointerMove);
+            el.removeEventListener('pointerup', onPointerUp);
             try { localStorage.setItem(EDITORIAL_WIDTH_KEY, String(dragWidthRef.current)); } catch { /* ignore */ }
         };
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+        el.addEventListener('pointermove', onPointerMove);
+        el.addEventListener('pointerup', onPointerUp);
     }, [editorialWidth]);
 
     const handleOpenDrawer = (drawer: DrawerType) => {
@@ -497,7 +500,7 @@ export function StoryEditor() {
                     {/* Drag handle on the left edge */}
                     <div
                         className="absolute left-0 top-0 bottom-0 w-3 cursor-col-resize z-10 bg-border/30 hover:bg-primary/40 active:bg-primary/60 transition-colors"
-                        onMouseDown={startEditorialDrag}
+                        onPointerDown={startEditorialDrag}
                     />
                     <SheetHeader>
                         <SheetTitle>AI Editorial</SheetTitle>
