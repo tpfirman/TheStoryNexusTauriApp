@@ -310,7 +310,7 @@ export class AgentOrchestrator {
      * This is the actual content the user wants, not judge/checker outputs
      */
     private getLastProseOutput(results: AgentResult[]): string {
-        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor'];
 
         // Find the last result from a prose-generating role
         for (let i = results.length - 1; i >= 0; i--) {
@@ -327,7 +327,7 @@ export class AgentOrchestrator {
      * Always scans backwards so revision loops return the most recent prose, not the first.
      */
     private getLastProseResult(results: AgentResult[]): AgentResult | undefined {
-        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor'];
         for (let i = results.length - 1; i >= 0; i--) {
             if (proseRoles.includes(results[i].role)) {
                 return results[i];
@@ -370,7 +370,7 @@ export class AgentOrchestrator {
         // [system, originalUser, assistantRefusal, pushPromptUser]
         if (isRevision && step?.pushPrompt && previousResults.length > 0) {
             // Find the MOST RECENT prose writer output (last iteration, not first)
-            const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
+            const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor'];
             const proseResult = [...previousResults].reverse().find(r => proseRoles.includes(r.role));
             const previousOutput = proseResult?.output || previousResults[previousResults.length - 1]?.output || '';
 
@@ -552,13 +552,19 @@ export class AgentOrchestrator {
                 return this.buildContinuityCheckerMessage(agent, input, previousResults);
 
             case 'style_editor':
-                return this.buildStyleEditorMessage(agent, previousResults);
+                return isRevision
+                    ? this.buildRevisionMessage(agent, input, previousResults)
+                    : this.buildStyleEditorMessage(agent, previousResults);
 
             case 'dialogue_specialist':
-                return this.buildDialogueSpecialistMessage(agent, previousResults);
+                return isRevision
+                    ? this.buildRevisionMessage(agent, input, previousResults)
+                    : this.buildDialogueSpecialistMessage(agent, previousResults);
 
             case 'expander':
-                return this.buildExpanderMessage(agent, input, previousResults);
+                return isRevision
+                    ? this.buildRevisionMessage(agent, input, previousResults)
+                    : this.buildExpanderMessage(agent, input, previousResults);
 
             case 'outline_generator':
                 return this.buildOutlineGeneratorMessage(agent, input, previousResults);
@@ -573,7 +579,9 @@ export class AgentOrchestrator {
                 return this.buildChapterReviewerMessage(agent, input);
 
             case 'chapter_editor':
-                return this.buildChapterEditorMessage(agent, input);
+                return isRevision
+                    ? this.buildChapterEditorRevisionMessage(agent, input, previousResults)
+                    : this.buildChapterEditorMessage(agent, input);
 
             case 'custom':
             default:
@@ -650,13 +658,14 @@ export class AgentOrchestrator {
 
         // Find feedback from judges that came AFTER the last prose output only.
         // This prevents stacking feedback from earlier iterations when maxIterations > 1.
-        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor'];
         const lastProseIdx = previousResults.reduce(
             (last, r, idx) => proseRoles.includes(r.role) ? idx : last,
             -1
         );
         const feedbackResults = previousResults.filter((r, idx) =>
-            idx > lastProseIdx && (r.role === 'lore_judge' || r.role === 'continuity_checker')
+            idx > lastProseIdx &&
+            (r.role === 'lore_judge' || r.role === 'continuity_checker' || r.role === 'chapter_reviewer')
         );
         const feedback = feedbackResults
             .map(r => `[${r.role.toUpperCase()} FEEDBACK]:\n${r.output}`)
@@ -808,6 +817,60 @@ Provide the improved version:`;
         }
 
         message += `---\nReturn the complete edited chapter text and nothing else:`;
+
+        return message;
+    }
+
+    private buildChapterEditorRevisionMessage(
+        agent: AgentPreset,
+        input: PipelineInput,
+        previousResults: AgentResult[],
+    ): string {
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const MAX_LORE_DESC_CHARS = 300;
+
+        // Find the last prose output from any prose-producing role
+        const allProseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor'];
+        const lastProseIdx = previousResults.reduce(
+            (last, r, idx) => allProseRoles.includes(r.role) ? idx : last,
+            -1,
+        );
+        const originalProse = lastProseIdx >= 0
+            ? previousResults[lastProseIdx].output
+            : input.previousWords || '';
+
+        // Collect reviewer/judge feedback from steps after the last prose output
+        const feedbackRoles: AgentRole[] = ['chapter_reviewer', 'lore_judge', 'continuity_checker'];
+        const feedbackResults = previousResults.filter(
+            (r, idx) => idx > lastProseIdx && feedbackRoles.includes(r.role),
+        );
+        const feedback = feedbackResults
+            .map(r => `[${r.role.toUpperCase()} FEEDBACK]:\n${r.output}`)
+            .join('\n\n');
+
+        let message = 'You need to REVISE the following chapter based on the feedback provided.\n\n';
+
+        if (lorebookEntries.length > 0) {
+            const lorebookContext = lorebookEntries
+                .map(e => {
+                    const desc = e.description.length > MAX_LORE_DESC_CHARS
+                        ? e.description.slice(0, MAX_LORE_DESC_CHARS) + '…'
+                        : e.description;
+                    return `[${e.category?.toUpperCase() ?? 'LORE'}] ${e.name}: ${desc}`;
+                })
+                .join('\n\n');
+            message += `ESTABLISHED LORE & CHARACTERS:\n${lorebookContext}\n\n`;
+        }
+
+        if (input.povType) {
+            message += `POV: ${input.povType}`;
+            if (input.povCharacter) message += ` (${input.povCharacter})`;
+            message += '\n\n';
+        }
+
+        message += `CHAPTER TO REVISE:\n${originalProse}\n\n`;
+        message += `---\n${feedback}\n\n`;
+        message += `---\nPlease rewrite the complete chapter, addressing ALL issues from the feedback while maintaining the original intent and style. Return the full revised chapter text and nothing else:`;
 
         return message;
     }
