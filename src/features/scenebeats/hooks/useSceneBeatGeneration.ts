@@ -307,14 +307,16 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                         agenticStepResults: [...prev.agenticStepResults, stepResult],
                     }));
                     // Surface judge feedback inline (Area 4)
-                    const isJudge = stepResult.role === 'lore_judge' || stepResult.role === 'continuity_checker';
+                    const isJudge = stepResult.role === 'lore_judge' || stepResult.role === 'continuity_checker' ||
+                        stepResult.role === 'judge_aggregator';
                     if (isJudge) {
-                        const upper = stepResult.output.toUpperCase();
+                        const upper = stepResult.output.toUpperCase().trim();
                         const hasSentinel = upper.includes('##LORE_ISSUE##') || upper.includes('##CONTINUITY_ISSUE##');
-                        const isConsistent = upper.trimStart().startsWith('CONSISTENT');
+                        const hasAggregatorIssues = upper.startsWith('ISSUES_FOUND');
+                        const isConsistent = upper.startsWith('CONSISTENT') || upper.startsWith('PASS');
                         const hasLegacyIssue = !isConsistent && upper.includes('ISSUE') &&
                             !upper.includes('NO ISSUE') && !upper.includes('WITHOUT ISSUE');
-                        const hasIssues = hasSentinel || hasLegacyIssue;
+                        const hasIssues = hasSentinel || hasAggregatorIssues || hasLegacyIssue;
                         store.setState((prev) => ({
                             agenticJudgeResults: [...prev.agenticJudgeResults, stepResult],
                             latestJudgeFeedback: hasIssues ? stepResult.output : null,
@@ -331,8 +333,13 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                     // Completion toast (Area 5)
                     const pipelineName = s.selectedPipeline?.name || 'Pipeline';
                     const stepCount = pipelineResult.steps.length;
-                    if (pipelineResult.verificationStatus === 'failed') {
-                        toast.warn(`${pipelineName} complete — lore issues remain (${stepCount} steps)`, { autoClose: 5000 });
+                    if (pipelineResult.loopLimitReached) {
+                        toast.warn(
+                            `${pipelineName} — revision loop limit reached. Output provided but issues may remain. Check diagnostics for details.`,
+                            { autoClose: 8000 }
+                        );
+                    } else if (pipelineResult.verificationStatus === 'failed') {
+                        toast.warn(`${pipelineName} complete — issues remain (${stepCount} steps)`, { autoClose: 5000 });
                     } else {
                         toast.success(`${pipelineName} complete (${stepCount} steps)`, { autoClose: 3000 });
                     }

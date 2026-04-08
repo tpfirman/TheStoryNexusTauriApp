@@ -44,6 +44,7 @@ const ROLE_LABELS: Record<AgentRole, string> = {
     chapter_editor: 'Chapter Editor',
     lore_writer: 'Lore Writer',
     lore_refiner: 'Lore Refiner',
+    judge_aggregator: 'Judge Aggregator',
     custom: 'Custom',
 };
 

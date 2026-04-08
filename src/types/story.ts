@@ -295,6 +295,7 @@ export type AgentRole =
   | "chapter_editor" // Rewrites/edits an entire chapter based on instructions
   | "lore_writer" // Creates new lorebook entries from a seed concept
   | "lore_refiner" // Iteratively refines existing lorebook entries
+  | "judge_aggregator" // Synthesises outputs from all judges since the last prose step
   | "custom"; // User-defined agent role
 
 // Context configuration for agents - controls what data is sent to the LLM
@@ -416,6 +417,12 @@ export const DEFAULT_CONTEXT_CONFIG: Record<AgentRole, AgentContextConfig> = {
     includePovInfo: false,
   },
   lore_refiner: {
+    lorebookMode: "none",
+    previousWordsMode: "none",
+    includeChapterSummary: false,
+    includePovInfo: false,
+  },
+  judge_aggregator: {
     lorebookMode: "none",
     previousWordsMode: "none",
     includeChapterSummary: false,

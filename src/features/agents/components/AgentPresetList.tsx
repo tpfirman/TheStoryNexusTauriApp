@@ -47,6 +47,7 @@ const ROLE_COLORS: Record<AgentRole, string> = {
     chapter_editor: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
     lore_writer: 'bg-lime-500/10 text-lime-500 border-lime-500/20',
     lore_refiner: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+    judge_aggregator: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
     custom: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
 };
 
@@ -66,6 +67,7 @@ const ROLE_LABELS: Record<AgentRole, string> = {
     chapter_editor: 'Chapter Editor',
     lore_writer: 'Lore Writer',
     lore_refiner: 'Lore Refiner',
+    judge_aggregator: 'Judge Aggregator',
     custom: 'Custom',
 };
 
