@@ -32,9 +32,10 @@ function formatMessages(messages: PromptMessage[]): string {
 }
 
 function judgeHasIssues(output: string): boolean {
-    const upper = output.toUpperCase();
+    const upper = output.toUpperCase().trim();
     if (upper.includes('##LORE_ISSUE##') || upper.includes('##CONTINUITY_ISSUE##')) return true;
-    if (upper.trimStart().startsWith('CONSISTENT')) return false;
+    if (upper.startsWith('ISSUES_FOUND')) return true;
+    if (upper.startsWith('CONSISTENT') || upper.startsWith('PASS')) return false;
     return upper.includes('ISSUE') && !upper.includes('NO ISSUE') && !upper.includes('WITHOUT ISSUE');
 }
 
@@ -43,6 +44,7 @@ function getStatusIcon(result: AgentResult) {
         return <XCircle className="h-4 w-4 text-destructive" />;
     }
     const isJudgeRole = result.role === 'lore_judge' || result.role === 'continuity_checker' ||
+        result.role === 'judge_aggregator' ||
         result.role.includes('judge') || result.role.includes('checker');
     if (isJudgeRole && judgeHasIssues(result.output)) {
         return <AlertTriangle className="h-4 w-4 text-yellow-500" />;

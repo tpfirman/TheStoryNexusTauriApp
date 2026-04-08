@@ -56,6 +56,7 @@ const AGENT_ROLES: { value: AgentRole; label: string; description: string }[] = 
     { value: 'lore_refiner', label: 'Lore Refiner', description: 'Iteratively refines existing lorebook entries' },
     { value: 'lore_judge', label: 'Lore Judge', description: 'Validates lore consistency' },
     { value: 'continuity_checker', label: 'Continuity Checker', description: 'Checks plot/character continuity' },
+    { value: 'judge_aggregator', label: 'Judge Aggregator', description: 'Synthesises all judge outputs since last prose into a single PASS or ISSUES_FOUND verdict' },
     { value: 'style_editor', label: 'Style Editor', description: 'Refines prose style and tone' },
     { value: 'dialogue_specialist', label: 'Dialogue Specialist', description: 'Improves dialogue authenticity' },
     { value: 'expander', label: 'Expander', description: 'Expands brief notes into prose' },

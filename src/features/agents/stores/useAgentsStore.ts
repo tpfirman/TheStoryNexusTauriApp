@@ -154,7 +154,20 @@ Use the same field structure as the entry you received:
 - "tags": string[]
 - "metadata": object (optional) with "type", "importance", "status"
 
-Preserve existing content that the user does not ask you to change. Apply the user's refinement instructions precisely. Return the complete updated entry, not just the changed fields.`
+Preserve existing content that the user does not ask you to change. Apply the user's refinement instructions precisely. Return the complete updated entry, not just the changed fields.`,
+
+    judge_aggregator: `You are a judge aggregator for fiction writing. Your job is to review the outputs from multiple judge agents (lore judge, continuity checker, etc.) and produce a single clear verdict.
+
+Rules:
+- If ALL judges found no issues (each returned CONSISTENT or similar): respond with only: PASS
+- If ANY judge found issues: respond with ISSUES_FOUND on the first line, then a concise, prioritised list of the problems to fix and how to fix them.
+
+Format when issues exist:
+ISSUES_FOUND
+[Numbered list of issues, most critical first. For each: what is wrong and the suggested fix.]
+
+Be concise and actionable. Merge duplicate issues from different judges. Omit style preferences — only flag factual contradictions and continuity errors.
+Do NOT use the word "issue" outside of the ISSUES_FOUND block.`
 };
 
 interface AgentsState {
@@ -408,6 +421,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
             chapter_editor: 'Chapter Editor',
             lore_writer: 'Lore Writer',
             lore_refiner: 'Lore Refiner',
+            judge_aggregator: 'Judge Aggregator',
             custom: 'Custom Agent'
         };
 
